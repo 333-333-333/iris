@@ -1,0 +1,25 @@
+# AI assistant generated files (created by setup.sh)
+.claude/
+.gemini/
+.codex/
+CLAUDE.md
+GEMINI.md
+.github/copilot-instructions.md
+
+# Generated copies in subdirectories
+**/CLAUDE.md
+**/GEMINI.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temp files
+*.tmp
+*.bak
