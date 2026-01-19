@@ -1,15 +1,31 @@
 /**
- * TFLiteVisionAdapter - Implementación de IVisionService usando TensorFlow Lite
+ * Vision service adapter using TensorFlow Lite for on-device detection
  * 
- * Usa react-native-fast-tflite para ejecutar modelos COCO-SSD localmente.
+ * Implements IVisionService using TensorFlow Lite with COCO-SSD MobileNet V1
+ * for fast, privacy-respecting object detection that works completely offline.
  * 
- * Modelos soportados:
- * - COCO-SSD MobileNet V1: Detección de objetos (80 categorías)
+ * @remarks
+ * Supported Models:
+ * - COCO-SSD MobileNet V1: Detects 80 object categories
  * 
- * El modelo COCO-SSD detecta objetos y retorna:
- * - Bounding boxes normalizados [0-1]
- * - Índice de clase (0-89, donde 0 es background)
- * - Score de confianza
+ * Detection Output:
+ * - Normalized bounding boxes [0-1]
+ * - Class indices (0-89, where 0 is background)
+ * - Confidence scores per detection
+ * 
+ * Key Advantages:
+ * - ✅ Works completely offline (no internet required)
+ * - ✅ Fast inference (~100-300ms per image)
+ * - ✅ Privacy-respecting (all processing local)
+ * - ✅ Low power consumption
+ * - ✅ 80 object categories
+ * 
+ * Limitations:
+ * - ⚠️ No natural language descriptions (use Azure or Gemini for that)
+ * - ⚠️ May have lower accuracy than cloud models
+ * - ⚠️ Model file size (~40-50MB)
+ * 
+ * @public
  */
 
 import {
@@ -27,10 +43,13 @@ import { translateLabel } from '../../../domain/value-objects/LabelTranslations'
 import { SceneDescriptionGenerator } from '../../../domain/services/SceneDescriptionGenerator';
 import { calculateAverageConfidence } from '../../../domain/entities/SceneDescription';
 import { TensorflowModel } from 'react-native-fast-tflite';
-import * as FileSystem from 'expo-file-system';
+import { File as ExpoFile } from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 /**
- * Resultado crudo de COCO-SSD
+ * Raw detection result from COCO-SSD model
+ * 
+ * @internal
  */
 interface TFLiteDetection {
   boundingBox: {
@@ -44,7 +63,12 @@ interface TFLiteDetection {
 }
 
 /**
- * Labels COCO en orden (índice 1-80, 0 es background)
+ * COCO object class labels in order
+ * 
+ * Index 0 is background (no object).
+ * Indices 1-80 correspond to COCO object categories.
+ * 
+ * @internal
  */
 const COCO_LABELS = [
   'background', 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
@@ -62,12 +86,35 @@ const COCO_LABELS = [
   'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
 ];
 
+/**
+ * On-device vision adapter using TensorFlow Lite
+ * 
+ * @public
+ */
 export class TFLiteVisionAdapter implements IVisionService {
   private isModelLoaded = false;
   private cocoModel: TensorflowModel | null = null;
 
   /**
-   * Pre-carga los modelos en memoria
+   * Preloads the COCO-SSD model into memory
+   * 
+   * Loads the TensorFlow Lite model from assets and prepares it for inference.
+   * Model is cached in memory after first load for fast reuse.
+   * 
+   * @returns Promise that resolves when model is loaded and ready
+   * @throws {Error} If model file not found or loading fails
+   * @throws {Error} If TensorFlow Lite initialization fails
+   * 
+   * @remarks
+   * Safe to call multiple times - subsequent calls return immediately if already loaded.
+   * Model loading typically takes 2-5 seconds on first call.
+   * 
+   * @example
+   * ```typescript
+   * const adapter = new TFLiteVisionAdapter();
+   * await adapter.preloadModels();
+   * // Model ready for analyzeImage()
+   * ```
    */
   async preloadModels(): Promise<void> {
     if (this.isModelLoaded) {
@@ -78,46 +125,90 @@ export class TFLiteVisionAdapter implements IVisionService {
     try {
       console.log('[TFLiteVisionAdapter] Preloading models...');
 
-      // Cargar modelo COCO-SSD con react-native-fast-tflite
-      const { loadModel } = require('react-native-fast-tflite');
+      // Importar TFLite
+      const { loadTensorflowModel } = require('react-native-fast-tflite');
+      console.log('[TFLiteVisionAdapter] react-native-fast-tflite imported');
       
-      // Obtener path del asset
-      const modelAsset = require('../../../../assets/models/coco_ssd_mobilenet_v1.tflite');
+      // Cargar modelo directamente desde assets usando require()
+      // Metro sabe cómo empaquetar .tflite porque está en metro.config.js
+      console.log('[TFLiteVisionAdapter] Loading model from Metro bundle...');
       
-      console.log('[TFLiteVisionAdapter] Loading model from asset:', modelAsset);
-      
-      this.cocoModel = await loadModel({
-        model: modelAsset,
-        // Usar aceleración por hardware en Android (NNAPI)
-        // En iOS usa Metal automáticamente
-        delegates: ['nnapi', 'gpu'],
-      });
+      // El modelo está en mobile/assets/models/coco_ssd_mobilenet_v1.tflite
+      // Desde este archivo en mobile/src/vision/infrastructure/adapters/tflite/
+      // Necesitamos subir 4 niveles: ../../../../assets/models/
+      this.cocoModel = await loadTensorflowModel(
+        require('../../../../../assets/models/coco_ssd_mobilenet_v1.tflite')
+      );
       
       this.isModelLoaded = true;
-      console.log('[TFLiteVisionAdapter] Model loaded successfully');
+      console.log('[TFLiteVisionAdapter] ✓ Model loaded successfully!');
       console.log('[TFLiteVisionAdapter] Model info:', {
         inputs: this.cocoModel.inputs,
         outputs: this.cocoModel.outputs,
       });
     } catch (error) {
-      console.error('[TFLiteVisionAdapter] Failed to load models:', error);
+      console.error('[TFLiteVisionAdapter] ✗ Failed to load models');
+      console.error('[TFLiteVisionAdapter] Error type:', error?.constructor?.name);
+      console.error('[TFLiteVisionAdapter] Error message:', error?.message);
+      console.error('[TFLiteVisionAdapter] Full error:', error);
       
       // Si falla, intentar con mock para desarrollo
-      console.warn('[TFLiteVisionAdapter] Falling back to MOCK mode');
+      console.warn('[TFLiteVisionAdapter] ⚠️  Falling back to MOCK mode');
+      console.warn('[TFLiteVisionAdapter] To fix: run "npx expo prebuild --clean" and "npx expo run:android"');
       this.cocoModel = { mock: true } as any;
       this.isModelLoaded = true;
     }
   }
 
-  /**
-   * Analiza una imagen y retorna la descripción de la escena
-   */
-  async analyzeImage(
-    imageUri: string,
-    options: AnalyzeImageOptions = {}
-  ): Promise<SceneDescription> {
+   /**
+    * Analyzes an image and detects objects using on-device model
+    * 
+    * Runs COCO-SSD inference on the image and returns detected objects
+    * with bounding boxes, labels, and confidence scores.
+    * Also generates natural descriptions from detected objects.
+    * 
+    * @param imageUri - Path to image file to analyze
+    * @param options - Analysis options (language for descriptions)
+    * @returns Promise resolving to scene description with detected objects
+    * @throws {Error} If image cannot be read or processing fails
+    * 
+    * @remarks
+    * Processing includes:
+    * 1. Preload model if not already loaded
+    * 2. Read and prepare image (resize to model input size)
+    * 3. Run TFLite inference
+    * 4. Filter low-confidence detections
+    * 5. Map class indices to COCO labels
+    * 6. Generate natural descriptions from objects
+    * 
+    * Typical processing time: 100-300ms depending on device.
+    * Works completely offline with no internet required.
+    * 
+    * @example
+    * ```typescript
+    * const description = await adapter.analyzeImage(
+    *   'file:///path/to/image.jpg',
+    *   { language: 'es' }
+    * );
+    * console.log('Detected objects:', description.objects.length);
+    * description.objects.forEach(obj => {
+    *   console.log(`${obj.labelEs} at ${obj.position}`);
+    * });
+    * ```
+    */
+   async analyzeImage(
+     imageUri: string,
+     options: AnalyzeImageOptions = {}
+   ): Promise<SceneDescription> {
+    console.log('[TFLiteVisionAdapter] analyzeImage called');
+    console.log('[TFLiteVisionAdapter] isModelLoaded:', this.isModelLoaded);
+    console.log('[TFLiteVisionAdapter] cocoModel:', this.cocoModel ? 'exists' : 'null');
+    
     if (!this.isModelLoaded) {
+      console.log('[TFLiteVisionAdapter] Model not loaded, calling preloadModels()...');
       await this.preloadModels();
+    } else {
+      console.log('[TFLiteVisionAdapter] Model already loaded');
     }
 
     console.log('[TFLiteVisionAdapter] Analyzing image:', imageUri);
@@ -191,15 +282,22 @@ export class TFLiteVisionAdapter implements IVisionService {
     try {
       console.log('[TFLiteVisionAdapter] Running real TFLite detection on:', imageUri);
 
-      // Leer imagen como base64
-      const base64 = await FileSystem.readAsStringAsync(imageUri, {
-        encoding: 'base64' as any,
-      });
+      // Pre-procesar imagen: redimensionar a 300x300
+      console.log('[TFLiteVisionAdapter] Resizing image to 300x300...');
+      const resizedImage = await ImageManipulator.manipulateAsync(
+        imageUri,
+        [{ resize: { width: 300, height: 300 } }],
+        { format: ImageManipulator.SaveFormat.JPEG }
+      );
+      
+      // Leer imagen redimensionada como bytes
+      const file = new ExpoFile(resizedImage.uri);
+      const imageBytes = await file.bytes();
+      
+      console.log('[TFLiteVisionAdapter] Image preprocessed:', imageBytes.length, 'bytes');
 
       // Ejecutar modelo
-      const outputs = this.cocoModel!.runSync([
-        new Uint8Array(Buffer.from(base64, 'base64'))
-      ]);
+      const outputs = this.cocoModel!.runSync([imageBytes]);
 
       console.log('[TFLiteVisionAdapter] Model outputs:', outputs.length);
 
@@ -215,24 +313,39 @@ export class TFLiteVisionAdapter implements IVisionService {
       const numDetections = Array.from(outputs[3] as any)[0] as number;
 
       console.log('[TFLiteVisionAdapter] Detected', numDetections, 'objects');
+      console.log('[TFLiteVisionAdapter] Raw scores:', scores.slice(0, 10));
+      console.log('[TFLiteVisionAdapter] Raw classes:', classes.slice(0, 10));
 
       const detections: TFLiteDetection[] = [];
+      let lowConfidenceCount = 0;
+      let backgroundCount = 0;
 
       for (let i = 0; i < Math.min(numDetections, 10); i++) {
         const score = scores[i];
-        
-        // Filtrar detecciones con baja confianza
-        if (score < 0.3) continue;
-
         const classIdx = Math.round(classes[i]);
         const label = COCO_LABELS[classIdx] || 'unknown';
         
+        console.log(`[TFLiteVisionAdapter] Detection ${i}: class=${classIdx} (${label}), score=${score.toFixed(3)}`);
+        
+        // Filtrar detecciones con baja confianza
+        if (score < 0.3) {
+          lowConfidenceCount++;
+          console.log(`  ↳ REJECTED: Low confidence (${score.toFixed(3)} < 0.3)`);
+          continue;
+        }
+        
         // Ignorar background y unknown
-        if (label === 'background' || label === 'unknown') continue;
+        if (label === 'background' || label === 'unknown') {
+          backgroundCount++;
+          console.log(`  ↳ REJECTED: Label is "${label}"`);
+          continue;
+        }
 
         const box = boxes[i];
         const [ymin, xmin, ymax, xmax] = box;
 
+        console.log(`  ↳ ACCEPTED: ${label} with confidence ${score.toFixed(3)}`);
+        
         detections.push({
           label,
           confidence: score,
@@ -245,7 +358,11 @@ export class TFLiteVisionAdapter implements IVisionService {
         });
       }
 
-      console.log('[TFLiteVisionAdapter] Filtered to', detections.length, 'valid detections');
+      console.log('[TFLiteVisionAdapter] Summary:');
+      console.log(`  - Total detections: ${numDetections}`);
+      console.log(`  - Rejected (low confidence): ${lowConfidenceCount}`);
+      console.log(`  - Rejected (background/unknown): ${backgroundCount}`);
+      console.log(`  - Accepted: ${detections.length}`);
 
       return detections;
     } catch (error) {

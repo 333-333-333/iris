@@ -2,25 +2,33 @@ import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import * as Haptics from 'expo-haptics';
 
 /**
- * ContinuousWakeWordService
+ * Wake word detection using continuous speech recognition
  * 
- * Always-on wake word detection using expo-speech-recognition in continuous mode.
- * This is a simpler alternative to Porcupine that works 100% with Expo.
+ * Implements always-on wake word detection using Expo's speech recognition
+ * in continuous mode. Simpler alternative to Porcupine that works fully
+ * within the Expo managed workflow.
  * 
+ * @remarks
  * How it works:
- * 1. Continuously listens for speech
- * 2. Filters for "iris" wake word in partial results
- * 3. When detected, triggers full command recognition
+ * 1. Continuously listens for speech using device speech engine
+ * 2. Filters partial results for "iris" wake word
+ * 3. Triggers full command recognition when wake word detected
  * 
  * Pros:
- * - ✅ No native modules needed
+ * - ✅ No native modules needed (pure Expo)
  * - ✅ Works with Expo managed workflow
  * - ✅ Simple implementation
  * 
  * Cons:
- * - ⚠️ Requires internet (uses device's speech API)
+ * - ⚠️ Requires internet (uses device's speech recognition)
  * - ⚠️ Higher battery usage (~5% per hour vs 1-3% with Porcupine)
  * - ⚠️ Audio sent to Google/Apple servers
+ * - ⚠️ Subject to speech recognition rate limits
+ * 
+ * Singleton Pattern:
+ * Use getInstance() to access the service.
+ * 
+ * @public
  */
 export class ContinuousWakeWordService {
   private static instance: ContinuousWakeWordService | null = null;
@@ -31,6 +39,11 @@ export class ContinuousWakeWordService {
 
   private constructor() {}
 
+  /**
+   * Gets or creates the singleton instance
+   * 
+   * @returns The singleton ContinuousWakeWordService instance
+   */
   static getInstance(): ContinuousWakeWordService {
     if (!ContinuousWakeWordService.instance) {
       ContinuousWakeWordService.instance = new ContinuousWakeWordService();
@@ -38,10 +51,21 @@ export class ContinuousWakeWordService {
     return ContinuousWakeWordService.instance;
   }
 
-  /**
-   * Start continuous listening for wake word
-   */
-  async start(onWakeWord: (transcript: string) => void): Promise<void> {
+   /**
+    * Starts continuous listening for wake word
+    * 
+    * Begins continuous speech recognition and monitors partial results
+    * for the "iris" wake word. Includes debouncing to prevent duplicate detections.
+    * 
+    * @param onWakeWord - Callback invoked with transcript when wake word detected
+    * @returns Promise that resolves when listening starts
+    * @throws {Error} If speech recognition not available or permission denied
+    * 
+    * @remarks
+    * Safe to call multiple times. Includes 2-second cooldown between wake word detections
+    * to prevent rapid re-triggering.
+    */
+   async start(onWakeWord: (transcript: string) => void): Promise<void> {
     if (this.isListening) {
       console.warn('[ContinuousWakeWordService] Already listening');
       return;
@@ -84,10 +108,15 @@ export class ContinuousWakeWordService {
     }
   }
 
-  /**
-   * Stop listening
-   */
-  async stop(): Promise<void> {
+   /**
+    * Stops continuous listening for wake word
+    * 
+    * @returns Promise that resolves when listening stops
+    * 
+    * @remarks
+    * Safe to call if not currently listening.
+    */
+   async stop(): Promise<void> {
     if (!this.isListening) {
       return;
     }

@@ -1,10 +1,17 @@
 /**
- * CameraCapture - Componente invisible que gestiona la cámara
+ * Invisible camera capture component
  * 
- * Este componente mantiene una instancia de Camera activa pero invisible,
- * permitiendo capturar fotos rápidamente cuando se necesiten.
+ * Manages an active camera instance without displaying preview.
+ * Keeps camera ready for rapid photo capture when needed.
  * 
- * Para una persona ciega, no mostramos preview - solo capturamos y analizamos.
+ * @remarks
+ * For visually impaired users, no camera preview is shown.
+ * Only the capture and analysis flow is needed.
+ * 
+ * Component is rendered with 1x1 pixel size and 0 opacity to keep it
+ * invisible while maintaining camera hardware access.
+ * 
+ * @public
  */
 
 import React, { useRef, useEffect } from 'react';
@@ -12,14 +19,41 @@ import { View, StyleSheet } from 'react-native';
 import { CameraView } from 'expo-camera';
 import { ExpoCameraAdapter } from '../../infrastructure/adapters/expo/ExpoCameraAdapter';
 
+/**
+ * Props for CameraCapture component
+ * 
+ * @public
+ */
 interface CameraCaptureProps {
-  /** Callback que recibe el adapter configurado */
+  /** Callback fired when camera adapter is ready to use */
   onAdapterReady?: (adapter: ExpoCameraAdapter) => void;
   
-  /** Si debe usar la cámara frontal (default: false - cámara trasera) */
+  /** Use front-facing camera instead of back (default: false) */
   useFrontCamera?: boolean;
 }
 
+/**
+ * Invisible camera component maintaining camera hardware access
+ * 
+ * Captures the camera reference and provides adapter for photo capture.
+ * Component is hidden (1x1 pixel, 0 opacity) but keeps camera active.
+ * 
+ * @param props - Component props
+ * @returns React component (invisible)
+ * 
+ * @example
+ * ```typescript
+ * <CameraCapture
+ *   useFrontCamera={false}
+ *   onAdapterReady={(adapter) => {
+ *     // Store adapter for later use
+ *     setCameraAdapter(adapter);
+ *   }}
+ * />
+ * ```
+ * 
+ * @public
+ */
 export const CameraCapture: React.FC<CameraCaptureProps> = ({
   onAdapterReady,
   useFrontCamera = false,

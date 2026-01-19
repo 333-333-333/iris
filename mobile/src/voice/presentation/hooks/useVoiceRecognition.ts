@@ -2,24 +2,46 @@ import React from 'react';
 import { ExpoSpeechRecognitionAdapter, SpeechRecognitionResult } from '../../infrastructure/adapters/expo/ExpoSpeechRecognitionAdapter';
 import { useSpeechRecognitionEvent } from 'expo-speech-recognition';
 
-// Using ExpoSpeechRecognitionAdapter for real voice recognition
+/** Type alias for voice recognition adapter */
 type VoiceAdapter = ExpoSpeechRecognitionAdapter;
 
+/**
+ * Configuration options for voice recognition hook
+ * 
+ * @public
+ */
 interface UseVoiceRecognitionOptions {
+  /** Language code for recognition (default: 'es-ES' Spanish) */
   language?: string;
+  /** Callback fired with final transcript and confidence */
   onTranscript?: (transcript: string, confidence: number) => void;
+  /** Callback fired when recognition error occurs */
   onError?: (error: Error) => void;
+  /** If true, automatically initialize recognition on mount */
   autoInitialize?: boolean;
 }
 
+/**
+ * Return value from voice recognition hook
+ * 
+ * @public
+ */
 interface UseVoiceRecognitionReturn {
+  /** True when actively listening for speech */
   isListening: boolean;
+  /** True when recognition engine is initialized */
   isInitialized: boolean;
+  /** Current transcript text (updates on partial results) */
   transcript: string;
+  /** Confidence score of current transcript (0-1) */
   confidence: number;
+  /** Error if recognition failed, null otherwise */
   error: Error | null;
+  /** Function to start listening for speech */
   startListening: () => Promise<void>;
+  /** Function to stop listening for speech */
   stopListening: () => Promise<void>;
+  /** Function to initialize recognition engine */
   initialize: () => Promise<void>;
 }
 

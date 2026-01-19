@@ -1,51 +1,99 @@
-# Vision Service - Análisis Local de Imágenes
+# Vision Service - Hybrid Image Analysis
 
-## Resumen
+## Overview
 
-Implementamos un sistema completo de visión por computadora que captura fotos y las analiza localmente usando TensorFlow Lite con el modelo COCO-SSD.
+We implemented a **hybrid** computer vision system:
+- **TensorFlow Lite** (local): Fast object detection, works offline
+- **Azure Computer Vision** (cloud): Rich contextual descriptions, internet-dependent
 
-## Arquitectura
+The system **always** uses TFLite locally and enriches with Azure when connected.
 
-### Clean Architecture en 3 Capas
+## Architecture
+
+### Clean Architecture in 3 Layers
 
 ```
 src/vision/
-├── domain/              # Lógica de negocio pura
+├── domain/              # Pure business logic
 │   ├── entities/
-│   │   ├── DetectedObject.ts      # Objeto detectado (label, confianza, posición)
-│   │   └── SceneDescription.ts    # Descripción completa de la escena
+│   │   ├── DetectedObject.ts      # Detected object (label, confidence, position)
+│   │   └── SceneDescription.ts    # Complete scene description
 │   ├── services/
-│   │   └── SceneDescriptionGenerator.ts  # Genera texto natural en español
+│   │   └── SceneDescriptionGenerator.ts  # Generates natural language text
 │   └── value-objects/
-│       └── LabelTranslations.ts   # Diccionario ES-EN (80 categorías COCO)
+│       └── LabelTranslations.ts   # EN-ES dictionary (80 COCO categories)
 │
-├── application/         # Casos de uso
+├── application/         # Use cases
 │   ├── ports/
-│   │   ├── ICameraService.ts      # Interface para cámara
-│   │   └── IVisionService.ts      # Interface para análisis de visión
+│   │   ├── ICameraService.ts      # Interface for camera
+│   │   └── IVisionService.ts      # Interface for vision analysis
 │   └── use-cases/
-│       └── AnalyzeSceneUseCase.ts # Orquesta: captura + análisis + descripción
+│       └── AnalyzeSceneUseCase.ts # Orchestrates: capture + analysis + description
 │
-├── infrastructure/      # Implementaciones concretas
+├── infrastructure/      # Concrete implementations
 │   ├── adapters/
 │   │   ├── expo/
-│   │   │   └── ExpoCameraAdapter.ts        # Implementa ICameraService con expo-camera
+│   │   │   └── ExpoCameraAdapter.ts        # Implements ICameraService with expo-camera
 │   │   ├── tflite/
-│   │   │   └── TFLiteVisionAdapter.ts      # Implementa IVisionService con TFLite
+│   │   │   └── TFLiteVisionAdapter.ts      # Implements IVisionService with TFLite (local)
+│   │   ├── azure/
+│   │   │   └── AzureVisionAdapter.ts       # Implements IVisionService with Azure CV (cloud)
+│   │   ├── hybrid/
+│   │   │   └── HybridVisionAdapter.ts      # Combines TFLite + Azure
 │   │   └── voice/
-│   │       └── VisionServiceBridge.ts      # Conecta vision module con voice module
+│   │       └── VisionServiceBridge.ts      # Connects vision module with voice module
 │   └── services/
 │
-└── presentation/        # UI y hooks
+└── presentation/        # UI and hooks
     ├── components/
-    │   └── CameraCapture.tsx       # Componente invisible con cámara activa
+    │   └── CameraCapture.tsx       # Invisible component with active camera
     └── hooks/
-        └── useVisionService.ts     # Hook React para acceder al servicio
+        └── useVisionService.ts     # React hook to access service
 ```
 
-## Flujo de Ejecución
+## Hybrid Strategy: TFLite + Azure
 
-### Cuando el usuario dice "iris describe"
+### Why hybrid?
+
+| Aspect | TFLite (Local) | Azure Computer Vision |
+|--------|----------------|----------------------|
+| **Speed** | ⚡ 200-500ms | 🐌 1-2s (network dependent) |
+| **Offline** | ✅ Works without internet | ❌ Requires internet |
+| **Privacy** | ✅ 100% private | ⚠️ Sends image to cloud |
+| **Detection** | ✅ 80 COCO objects | ✅ 10,000+ objects |
+| **Description** | 📝 Basic template | 🎨 Contextual and natural |
+| **Cost** | ✅ Always free | ✅ 5,000/month free |
+
+### Implemented Strategy
+
+```
+User: "iris describe"
+       ↓
+1. ALWAYS runs TFLite (local)
+   → Detects basic objects
+   → Generates structured description
+   → Fast and offline
+       ↓
+2. Is internet available? → Yes
+       ↓
+3. Enriches with Azure Computer Vision
+   → Deep contextual analysis
+   → More natural description
+   → Combines TFLite objects + Azure description
+       ↓
+4. Returns best of both worlds
+```
+
+### Advantages of This Strategy
+
+1. **Always works**: TFLite guarantees offline functionality
+2. **Improves with internet**: Azure adds context and richness
+3. **Fast**: TFLite responds first, Azure enriches after
+4. **Economical**: 5,000 analyses free/month with Azure
+
+## Execution Flow
+
+### When user says "iris describe" (WITH INTERNET)
 
 ```
 1. ProcessCommandUseCase.handleDescribe()
@@ -55,59 +103,91 @@ src/vision/
 3. AnalyzeSceneUseCase.execute()
            ↓
 4. ExpoCameraAdapter.capturePhoto()
-   → Toma foto con expo-camera
-   → Retorna URI local
+   → Takes photo with expo-camera
+   → Returns local URI
            ↓
-5. TFLiteVisionAdapter.analyzeImage()
-   → Carga modelo COCO-SSD (si no está cargado)
-   → Ejecuta inferencia sobre la imagen
-   → Retorna lista de objetos detectados
+5. HybridVisionAdapter.analyzeImage()
            ↓
-6. SceneDescriptionGenerator.generate()
-   → Agrupa objetos por tipo
-   → Traduce labels al español
-   → Construye frase natural
-   → "Veo 2 personas y una silla en el centro"
+   5a. TFLiteVisionAdapter.analyzeImage()
+       → Loads COCO-SSD model (if not loaded)
+       → Runs inference on image (200-500ms)
+       → Returns: { objects: [...], naturalDescription: "basic template" }
            ↓
-7. ExpoSpeechSynthesizer.speak(description)
-   → TTS lee la descripción
+   5b. Checks internet connection
+       → NetInfo.fetch() → isConnected: true
+           ↓
+   5c. AzureVisionAdapter.analyzeImage()
+       → Sends image to Azure Computer Vision API
+       → Azure analyzes full context (1-2s)
+       → Returns: { naturalDescription: "rich and contextual description" }
+           ↓
+   5d. Combines results
+       → objects: from TFLite (with coordinates)
+       → naturalDescription: from Azure (more natural)
+       → Best of both worlds
+           ↓
+6. ExpoSpeechSynthesizer.speak(description)
+   → TTS reads enriched description
 ```
 
-## Componentes Clave
+### When user says "iris describe" (NO INTERNET)
 
-### 1. DetectedObject (Entidad)
+```
+1-4. [Same as above]
+           ↓
+5. HybridVisionAdapter.analyzeImage()
+           ↓
+   5a. TFLiteVisionAdapter.analyzeImage()
+       → Detects objects locally
+       → Returns: { objects: [...], naturalDescription: "template" }
+           ↓
+   5b. Checks internet connection
+       → NetInfo.fetch() → isConnected: false
+       → ⚠️ Skips Azure, uses only TFLite
+           ↓
+   5c. Returns local result
+       → objects: from TFLite
+       → naturalDescription: generated by SceneDescriptionGenerator
+           ↓
+6. ExpoSpeechSynthesizer.speak(description)
+   → TTS reads local description
+```
+
+## Key Components
+
+### 1. DetectedObject (Entity)
 
 ```typescript
 interface DetectedObject {
-  label: string;           // "person" (inglés, del modelo)
-  labelEs: string;         // "persona" (español, traducido)
-  confidence: number;      // 0.92 (92% de confianza)
+  label: string;           // "person" (English, from model)
+  labelEs: string;         // "persona" (Spanish, translated)
+  confidence: number;      // 0.92 (92% confidence)
   boundingBox: {
-    x: 0.2,                // Posición normalizada (0-1)
+    x: 0.2,                // Normalized position (0-1)
     y: 0.3,
     width: 0.4,
     height: 0.5
   };
-  position: 'center';      // Calculado: center, left, right, top, bottom
-  size: 'large';           // Calculado: large, medium, small
+  position: 'center';      // Calculated: center, left, right, top, bottom
+  size: 'large';           // Calculated: large, medium, small
 }
 ```
 
-### 2. SceneDescription (Entidad)
+### 2. SceneDescription (Entity)
 
 ```typescript
 interface SceneDescription {
   objects: DetectedObject[];
   timestamp: Date;
-  confidence: number;      // Promedio de confianzas
-  naturalDescription: string;  // "Veo 2 personas y una silla"
-  imageUri?: string;       // URI de la foto analizada
+  confidence: number;      // Average of confidences
+  naturalDescription: string;  // "I see 2 people and a chair"
+  imageUri?: string;       // URI of analyzed photo
 }
 ```
 
-### 3. SceneDescriptionGenerator (Servicio de Dominio)
+### 3. SceneDescriptionGenerator (Domain Service)
 
-Convierte datos técnicos en lenguaje natural:
+Converts technical data to natural language:
 
 **Input:**
 ```json
@@ -120,72 +200,110 @@ Convierte datos técnicos en lenguaje natural:
 
 **Output:**
 ```
-"Veo 2 personas y una silla en el centro"
+"I see 2 people and a chair in the center"
 ```
 
-**Características:**
-- Agrupa objetos por tipo ("2 personas" en lugar de "persona, persona")
-- Usa plurales correctos ("sillas", "personas")
-- Filtra por confianza mínima (default: 50%)
-- Describe posición de objetos principales
-- Maneja casos especiales (0 objetos, 1 objeto, muchos objetos)
+**Features:**
+- Groups objects by type ("2 people" instead of "person, person")
+- Uses correct plurals ("chairs", "people")
+- Filters by minimum confidence (default: 50%)
+- Describes position of main objects
+- Handles edge cases (0 objects, 1 object, many objects)
 
-### 4. TFLiteVisionAdapter (Infraestructura)
+### 4. TFLiteVisionAdapter (Infrastructure)
 
-**Estado actual:** Mock implementation
-- Simula detecciones para testing sin dispositivo físico
-- Retorna datos de prueba: persona, silla, laptop
+**Current state:** Mock implementation
+- Simulates detections for testing without physical device
+- Returns test data: person, chair, laptop
 
-**Cuando construyas en dispositivo real:**
-1. Descarga modelo COCO-SSD (~5MB)
-2. Descomenta código de react-native-fast-tflite
-3. Carga modelo al iniciar app
-4. Ejecuta inferencia real
+**When building on real device:**
+1. Download COCO-SSD model (~5MB)
+2. Uncomment react-native-fast-tflite code
+3. Load model on app startup
+4. Run real inference
 
-**Ver:** `/mobile/assets/models/README.md` para instrucciones
+**See:** `/mobile/assets/models/README.md` for instructions
 
-### 5. ExpoCameraAdapter (Infraestructura)
+### 5. ExpoCameraAdapter (Infrastructure)
 
-- Implementa ICameraService usando expo-camera
-- Maneja permisos automáticamente
-- Captura fotos en alta calidad (optimizada a 640x640 para TFLite)
-- Usa CameraView invisible en background
+- Implements ICameraService using expo-camera
+- Handles permissions automatically
+- Captures high-quality photos (optimized to 640x640 for TFLite)
+- Uses invisible CameraView in background
 
-## Traducciones (80 categorías COCO)
+## Description Examples: TFLite vs Azure
 
-El modelo COCO-SSD detecta 80 categorías. Todas están traducidas al español:
+### Example 1: Office
 
-| Categoría EN | Categoría ES |
-|--------------|--------------|
-| person       | persona      |
-| car          | coche        |
-| chair        | silla        |
-| laptop       | portátil     |
-| cup          | taza         |
-| bottle       | botella      |
-| ...          | ...          |
+**TFLite Detection (local):**
+```
+Objects: person (0.92), laptop (0.88), chair (0.76), cup (0.65)
+Description: "I see a person, a laptop, a chair and a cup"
+```
 
-**Ver:** `LabelTranslations.ts` para lista completa
+**Azure Computer Vision (enriched):**
+```
+Objects: [same as TFLite with coordinates]
+Description: "A person working in a modern office with a laptop on the desk and a coffee cup beside"
+```
 
-## Integración con Voice Module
+### Example 2: Street
+
+**TFLite Detection (local):**
+```
+Objects: car (0.91), car (0.88), person (0.83), traffic light (0.72)
+Description: "I see 2 cars, a person and a traffic light"
+```
+
+**Azure Computer Vision (enriched):**
+```
+Objects: [same as TFLite]
+Description: "An urban street with two parked cars and a person crossing at the traffic light"
+```
+
+### Example 3: No Internet (TFLite only)
+
+```
+[No internet connection]
+Objects: dog (0.89), person (0.85), ball (0.67)
+Description: "I see a dog, a person and a ball"
+```
+
+## Translations (80 COCO Categories)
+
+The COCO-SSD model detects 80 categories. All are translated to English:
+
+| Category EN | Category ES |
+|-------------|-------------|
+| person      | persona     |
+| car         | coche       |
+| chair       | silla       |
+| laptop      | portátil    |
+| cup         | taza        |
+| bottle      | botella     |
+| ...         | ...         |
+
+**See:** `LabelTranslations.ts` for complete list
+
+## Integration with Voice Module
 
 ### VisionServiceBridge
 
-Adaptador que conecta los dos módulos manteniendo la separación:
+Adapter that connects both modules while maintaining separation:
 
 ```typescript
-// Voice module espera:
+// Voice module expects:
 interface VisionService {
   analyzeScene(): Promise<SceneAnalysis>;
   isReady(): boolean;
 }
 
-// Vision module provee:
+// Vision module provides:
 class AnalyzeSceneUseCase {
   execute(): Promise<SceneDescription>;
 }
 
-// Bridge conecta ambos:
+// Bridge connects both:
 class VisionServiceBridge implements VisionService {
   async analyzeScene(): Promise<SceneAnalysis> {
     const description = await this.analyzeSceneUseCase.execute();
@@ -197,14 +315,14 @@ class VisionServiceBridge implements VisionService {
 }
 ```
 
-## Uso desde React
+## Usage from React
 
 ### Hook: useVisionService
 
 ```typescript
 function MyComponent() {
   const { visionService, isReady } = useVisionService({
-    preload: true  // Pre-carga modelos al montar
+    preload: true  // Pre-load models on mount
   });
 
   useEffect(() => {
@@ -217,14 +335,14 @@ function MyComponent() {
 }
 ```
 
-### Integración en App.tsx
+### Integration in App.tsx
 
 ```typescript
 function App() {
-  // 1. Inicializar vision service
+  // 1. Initialize vision service
   const { visionService, cameraAdapter } = useVisionService({ preload: true });
 
-  // 2. Pasar a voice commands
+  // 2. Pass to voice commands
   return (
     <>
       <HomeScreen visionService={visionService} />
@@ -234,75 +352,75 @@ function App() {
 }
 ```
 
-## Rendimiento Esperado
+## Expected Performance
 
-### Primera ejecución:
-- Carga de modelo: ~500-1000ms
-- Captura de foto: ~200-300ms
-- Inferencia TFLite: ~200-500ms
-- Total: ~1-2 segundos
+### First execution:
+- Model loading: ~500-1000ms
+- Photo capture: ~200-300ms
+- TFLite inference: ~200-500ms
+- Total: ~1-2 seconds
 
-### Ejecuciones subsecuentes:
-- Modelo en memoria (ya cargado)
-- Captura: ~200-300ms
-- Inferencia: ~200-500ms
+### Subsequent executions:
+- Model in memory (already loaded)
+- Capture: ~200-300ms
+- Inference: ~200-500ms
 - Total: ~500-800ms
 
-### Optimizaciones implementadas:
-- ✅ Pre-carga de modelos al iniciar app
-- ✅ Cámara siempre activa (no se inicia/detiene cada vez)
-- ✅ Resize de imágenes a 640x640 (óptimo para TFLite)
-- ✅ Filtro de confianza mínima (50%)
-- ✅ Caché de última descripción (para "iris repite")
+### Implemented optimizations:
+- ✅ Pre-load models on app startup
+- ✅ Camera always active (not started/stopped each time)
+- ✅ Image resize to 640x640 (optimal for TFLite)
+- ✅ Minimum confidence filter (50%)
+- ✅ Cache of last description (for "iris repeat")
 
-## Tamaño de App
+## App Size
 
-- **Modelos TFLite:** ~5-6 MB (COCO-SSD)
-- **Código vision module:** ~50 KB
-- **Total adicional:** ~5-6 MB al APK/IPA
+- **TFLite Models:** ~5-6 MB (COCO-SSD)
+- **Vision module code:** ~50 KB
+- **Total additional:** ~5-6 MB to APK/IPA
 
-## Próximos Pasos
+## Next Steps
 
-### Para probar en dispositivo real:
+### To test on real device:
 
-1. **Descargar modelo COCO-SSD:**
+1. **Download COCO-SSD model:**
    ```bash
    cd mobile/assets/models
    curl -L -o coco_ssd_mobilenet_v1.tflite \
      "https://tfhub.dev/tensorflow/lite-model/ssd_mobilenet_v1/1/metadata/2?lite-format=tflite"
    ```
 
-2. **Configurar react-native-fast-tflite:**
+2. **Configure react-native-fast-tflite:**
    ```bash
    cd mobile
    npx expo prebuild --clean
-   npx expo run:android  # o run:ios
+   npx expo run:android  # or run:ios
    ```
 
-3. **Actualizar TFLiteVisionAdapter:**
-   - Descomentar código real de TFLite
-   - Eliminar mock data
+3. **Update TFLiteVisionAdapter:**
+   - Uncomment real TFLite code
+   - Remove mock data
 
-4. **Probar comando:**
-   - Decir "iris describe"
-   - Verificar que captura foto
-   - Verificar que detecta objetos
-   - Verificar que describe en español
+4. **Test command:**
+   - Say "iris describe"
+   - Verify photo capture
+   - Verify object detection
+   - Verify description in English
 
-### Mejoras futuras (opcional):
+### Future improvements (optional):
 
-- [ ] Agregar MobileNet V2 para clasificación de escenas
-- [ ] Detectar colores dominantes
-- [ ] OCR para leer texto en imágenes
-- [ ] Detección de rostros (BlazeFace)
-- [ ] Modo "exploración continua" (analiza cada 5 segundos)
-- [ ] Historial de descripciones con timestamps
+- [ ] Add MobileNet V2 for scene classification
+- [ ] Detect dominant colors
+- [ ] OCR to read text in images
+- [ ] Face detection (BlazeFace)
+- [ ] "Continuous exploration" mode (analyzes every 5 seconds)
+- [ ] Description history with timestamps
 
 ## Testing
 
-### Mock para desarrollo sin dispositivo:
+### Mock for development without device:
 
-El TFLiteVisionAdapter actual incluye datos mock:
+The current TFLiteVisionAdapter includes mock data:
 
 ```typescript
 // MOCK detections
@@ -313,37 +431,37 @@ return [
 ];
 ```
 
-Esto permite:
-- ✅ Desarrollar UI sin necesitar dispositivo
-- ✅ Probar generación de descripciones
-- ✅ Validar flujo completo end-to-end
-- ✅ Escribir tests unitarios
+This enables:
+- ✅ Develop UI without needing device
+- ✅ Test description generation
+- ✅ Validate complete end-to-end flow
+- ✅ Write unit tests
 
-### Tests unitarios existentes:
+### Existing unit tests:
 
 ```bash
 npm test -- vision
 ```
 
-Prueba:
-- SceneDescriptionGenerator con varios escenarios
-- Traducciones de labels
-- Cálculo de posiciones y tamaños
-- Filtrado por confianza
+Tests:
+- SceneDescriptionGenerator with various scenarios
+- Label translations
+- Position and size calculation
+- Confidence filtering
 
 ## Troubleshooting
 
 ### "Vision service not ready"
-→ Los modelos aún están cargando. Espera unos segundos o llama a `warmUp()`.
+→ Models are still loading. Wait a few seconds or call `warmUp()`.
 
 ### "Camera permission denied"
-→ Ve a Configuración > Iris > Permisos > Cámara > Permitir
+→ Go to Settings > Iris > Permissions > Camera > Allow
 
 ### "No objects detected"
-→ La escena está muy oscura o no hay objetos reconocibles por COCO (80 categorías)
+→ Scene is too dark or no objects recognized by COCO (80 categories)
 
-### Build fails con TFLite
-→ Asegúrate de haber ejecutado `npx expo prebuild` antes de `expo run:android`
+### Build fails with TFLite
+→ Make sure you've run `npx expo prebuild` before `expo run:android`
 
 ## Referencias
 

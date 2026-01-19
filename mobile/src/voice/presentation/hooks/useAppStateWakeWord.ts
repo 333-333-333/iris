@@ -1,16 +1,47 @@
 import React from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 
+/**
+ * Configuration for app state lifecycle callbacks
+ * 
+ * @public
+ */
 interface UseAppStateWakeWordOptions {
+  /** Callback fired when app returns to foreground */
   onForeground: () => void;
+  /** Callback fired when app goes to background */
   onBackground: () => void;
 }
 
 /**
- * Hook to handle app state changes for wake word service
+ * React hook for managing app lifecycle events
  * 
- * Restarts wake word detection when app comes to foreground
- * and handles cleanup when going to background.
+ * Monitors app state changes and triggers callbacks for foreground/background transitions.
+ * Useful for controlling wake word detection based on app visibility.
+ * 
+ * @param options - Lifecycle callback handlers
+ * 
+ * @remarks
+ * Typical usage:
+ * - Restart wake word detection when app comes to foreground
+ * - Pause non-critical operations when going to background
+ * - Save state before backgrounding
+ * 
+ * @example
+ * ```typescript
+ * useAppStateWakeWord({
+ *   onForeground: async () => {
+ *     console.log('App is now active - restart wake word');
+ *     await startWakeWordDetection();
+ *   },
+ *   onBackground: () => {
+ *     console.log('App is backgrounded');
+ *     // Cleanup here if needed
+ *   },
+ * });
+ * ```
+ * 
+ * @public
  */
 export function useAppStateWakeWord(options: UseAppStateWakeWordOptions) {
   const appState = React.useRef(AppState.currentState);

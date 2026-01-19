@@ -7,31 +7,80 @@ import { ExpoSpeechSynthesizer, InMemoryDescriptionRepository } from '../../infr
 import { VisionService } from '../../application/ports/VisionService';
 import { useVoiceRecognition } from './useVoiceRecognition';
 
+/**
+ * Configuration options for the useVoiceCommands hook
+ * 
+ * @public
+ */
 export interface UseVoiceCommandsOptions {
+  /** If true, automatically start listening when component mounts */
   autoStart?: boolean;
+  /** Callback fired when a parsed voice command is detected */
   onCommand?: (command: ParsedCommand) => void;
+  /** Callback fired when scene description is generated */
   onDescription?: (description: string) => void;
+  /** Callback fired when an error occurs during voice processing */
   onError?: (error: string) => void;
+  /** Callback fired when any state (listening, processing, speaking) changes */
   onStatusChange?: (isListening: boolean, isProcessing: boolean, isSpeaking: boolean) => void;
-  /** Servicio de visión para análisis de imágenes */
+  /** Service for analyzing the visual scene when describe command is issued */
   visionService?: VisionService;
 }
 
+/**
+ * Return value from the useVoiceCommands hook
+ * 
+ * @public
+ */
 export interface UseVoiceCommandsReturn {
+  /** True when actively listening for voice input */
   isListening: boolean;
+  /** True when processing a detected command */
   isProcessing: boolean;
+  /** True when synthesizing speech response */
   isSpeaking: boolean;
+  /** True when an error occurred in the voice pipeline */
   hasError: boolean;
+  /** The most recent voice transcription */
   transcript: string;
+  /** The last generated scene description for replay */
   lastDescription: string | null;
+  /** Error message if an error occurred */
   error: string | null;
+  /** Function to start listening for voice commands */
   start: () => void;
+  /** Function to stop listening for voice commands */
   stop: () => void;
+  /** Function to retry after an error */
   retry: () => void;
+  /** Internal reference to the voice machine actor (for testing) */
   voiceActor?: any;
+  /** Internal reference to the voice machine (for testing) */
   voiceMachine?: any;
 }
 
+/**
+ * React hook for managing voice command recognition and processing
+ * 
+ * Integrates voice recognition, command parsing, vision analysis, and speech synthesis
+ * into a cohesive voice interaction system. Manages state transitions through an XState
+ * machine and handles all voice-related callbacks.
+ * 
+ * @param options - Configuration options for voice command handling
+ * @returns State and control interface for voice command processing
+ * 
+ * @example
+ * ```typescript
+ * const { isListening, start, stop, lastDescription, error } = useVoiceCommands({
+ *   autoStart: true,
+ *   visionService: myVisionService,
+ *   onDescription: (desc) => console.log('Scene:', desc),
+ *   onError: (err) => console.error('Voice error:', err),
+ * });
+ * ```
+ * 
+ * @public
+ */
 export function useVoiceCommands(options: UseVoiceCommandsOptions = {}): UseVoiceCommandsReturn {
   // Create dependencies (memoized to prevent recreating on every render)
   const repository = React.useMemo(() => new InMemoryDescriptionRepository(), []);

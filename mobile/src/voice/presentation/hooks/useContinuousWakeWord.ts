@@ -2,32 +2,71 @@ import React from 'react';
 import { useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { ContinuousWakeWordService } from '../../infrastructure/services/ContinuousWakeWordService';
 
+/**
+ * Configuration options for continuous wake word detection
+ * 
+ * @public
+ */
 interface UseContinuousWakeWordOptions {
+  /** Callback fired when wake word detected with transcript */
   onWakeWord: (transcript: string) => void;
+  /** If true, automatically start listening on mount */
   autoStart?: boolean;
 }
 
+/**
+ * Return value from continuous wake word hook
+ * 
+ * @public
+ */
 interface UseContinuousWakeWordReturn {
+  /** True when wake word detection is active */
   isActive: boolean;
+  /** The most recent detected transcript */
   lastTranscript: string;
+  /** Error if detection failed, null otherwise */
   error: Error | null;
+  /** Function to start wake word detection */
   start: () => Promise<void>;
+  /** Function to stop wake word detection */
   stop: () => Promise<void>;
 }
 
 /**
- * Hook for continuous wake word detection
+ * React hook for continuous always-on wake word detection
  * 
- * Manages the lifecycle of continuous wake word listening,
- * including automatic restarts and error handling.
+ * Manages continuous listening for wake words using Expo speech recognition.
+ * Automatically detects "iris" wake word and triggers callbacks.
  * 
- * Usage:
- * ```tsx
- * const { isActive, lastTranscript } = useContinuousWakeWord({
- *   onWakeWord: (text) => console.log('Detected:', text),
+ * @param options - Configuration for wake word detection
+ * @returns Hook state and control functions
+ * 
+ * @remarks
+ * This hook:
+ * - Runs in continuous mode (always listening)
+ * - Includes 2-second cooldown between detections
+ * - Handles speech recognition lifecycle
+ * - Integrates with app state management
+ * 
+ * **Important**: Requires microphone permission.
+ * Uses device's speech recognition service (requires internet).
+ * 
+ * @example
+ * ```typescript
+ * const { isActive, lastTranscript, start, stop } = useContinuousWakeWord({
+ *   onWakeWord: (text) => {
+ *     console.log('Wake word detected:', text);
+ *     // Trigger voice command flow
+ *   },
  *   autoStart: true
  * });
+ * 
+ * // Control detection
+ * await start();
+ * await stop();
  * ```
+ * 
+ * @public
  */
 export function useContinuousWakeWord(
   options: UseContinuousWakeWordOptions
