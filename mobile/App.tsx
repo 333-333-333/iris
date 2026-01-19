@@ -2,12 +2,35 @@ import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View, SafeAreaView } from 'react-native';
 import { HomeScreen } from './src/shared/presentation/components/pages/HomeScreen';
+import { TestScreen } from './src/shared/presentation/components/pages/TestScreen';
 import { WakeWordStatusBar } from './src/shared/presentation/components/atoms/WakeWordStatusBar';
 import { CameraCapture } from './src/vision/presentation/components/CameraCapture';
 import { useContinuousWakeWord } from './src/voice/presentation/hooks/useContinuousWakeWord';
 import { useAppStateWakeWord } from './src/voice/presentation/hooks/useAppStateWakeWord';
 import { useVisionService } from './src/vision/presentation/hooks/useVisionService';
 
+/** Set to true to enable development mode with testing UI instead of home screen */
+const DEV_MODE = true;
+
+/**
+ * Root application component for Iris voice assistant
+ * 
+ * Orchestrates the complete voice-vision interaction flow:
+ * - Initializes vision models (on-device TensorFlow Lite + cloud adapters)
+ * - Manages wake word detection and continuous listening
+ * - Handles app foreground/background lifecycle for wake word service
+ * - Routes between home screen and test screen based on dev mode
+ * - Provides camera capture and status monitoring
+ * 
+ * @returns The root React Native component tree
+ * 
+ * @remarks
+ * This component serves as the entry point for the entire application.
+ * All critical services (vision, voice, speech synthesis) are initialized here
+ * and passed down to child screens through props.
+ * 
+ * @public
+ */
 export default function App(): React.JSX.Element {
   // Initialize vision service (preloads models in background)
   const { visionService, cameraAdapter, isReady: visionReady } = useVisionService({
@@ -45,12 +68,19 @@ export default function App(): React.JSX.Element {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
       <View style={styles.container}>
-        <WakeWordStatusBar isActive={isActive} lastTranscript={lastTranscript} />
-        <HomeScreen 
-          wakeWordActive={isActive} 
-          lastTranscript={lastTranscript}
-          visionService={visionService}
-        />
+        {!DEV_MODE && (
+          <WakeWordStatusBar isActive={isActive} lastTranscript={lastTranscript} />
+        )}
+        
+        {DEV_MODE ? (
+          <TestScreen visionService={visionService} />
+        ) : (
+          <HomeScreen 
+            wakeWordActive={isActive} 
+            lastTranscript={lastTranscript}
+            visionService={visionService}
+          />
+        )}
         
         {/* Camera component (invisible but active) */}
         <CameraCapture 
