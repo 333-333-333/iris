@@ -17,6 +17,7 @@
       "bundleIdentifier": "com.iris.visionassistant",
       "infoPlist": {
         "NSCameraUsageDescription": "Iris necesita la cámara para describir tu entorno",
+        "NSPhotoLibraryUsageDescription": "Iris necesita acceso a la galería para analizar tus fotos",
         "NSMicrophoneUsageDescription": "Iris escucha continuamente para activarse cuando dices 'iris'",
         "NSSpeechRecognitionUsageDescription": "Iris necesita reconocimiento de voz para entender tus comandos",
         "UIBackgroundModes": [
@@ -35,13 +36,17 @@
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO",
+        "READ_MEDIA_IMAGES",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_MICROPHONE",
         "WAKE_LOCK",
         "POST_NOTIFICATIONS",
         "RECEIVE_BOOT_COMPLETED",
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_MEDIA_IMAGES"
       ]
     },
     "plugins": [
@@ -50,6 +55,13 @@
         {
           "cameraPermission": "Iris necesita la cámara para describir tu entorno",
           "microphonePermission": "Iris necesita el micrófono para comandos de voz"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Iris necesita acceso a la galería para analizar tus fotos",
+          "cameraPermission": "Iris necesita la cámara para capturar fotos"
         }
       ],
       [

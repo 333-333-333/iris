@@ -33,11 +33,15 @@ Iris es un asistente móvil activado por voz que describe el entorno visual usan
 - Funciona en segundo plano
 - Comandos en español
 
-### 👁️ Visión por Computadora Local
-- Detección de 80 categorías de objetos (personas, muebles, vehículos, etc.)
-- Procesamiento 100% local (privacidad total)
-- Análisis en ~500-800ms
-- Modelo COCO-SSD MobileNet V1 (4MB)
+### 👁️ Visión por Computadora Híbrida
+- **Detección local** con TensorFlow Lite (COCO-SSD)
+  - 80 categorías de objetos
+  - Procesamiento on-device (privacidad total)
+  - Funciona sin internet
+- **Descripciones enriquecidas** con Azure Computer Vision (opcional)
+  - Análisis contextual profundo
+  - 5,000 requests/mes gratis
+  - Se activa automáticamente con internet
 
 ### 🗣️ Descripciones en Lenguaje Natural
 - "Veo 2 personas y una silla en el centro"
@@ -98,7 +102,8 @@ src/
 | Framework | Expo SDK 54 + React Native 0.81 |
 | Language | TypeScript (strict mode) |
 | State Management | XState v5 |
-| Vision AI | TensorFlow Lite (COCO-SSD) |
+| Vision AI (Local) | TensorFlow Lite (COCO-SSD) |
+| Vision AI (Cloud) | Azure Computer Vision v4.0 |
 | Speech Recognition | expo-speech-recognition |
 | Text-to-Speech | expo-speech |
 | Camera | expo-camera v17 |
@@ -124,9 +129,30 @@ cd iris/mobile
 # Instalar dependencias
 npm install
 
+# Configurar Azure Computer Vision (opcional)
+cp .env.example .env
+# Edita .env y agrega tus credenciales de Azure
+# Sin esto, solo funcionará el análisis local
+
 # Descargar modelo TFLite (ya incluido)
 ls assets/models/coco_ssd_mobilenet_v1.tflite
 ```
+
+### Obtener Credenciales de Azure (Opcional)
+
+Para habilitar descripciones enriquecidas con Azure Computer Vision:
+
+1. Ve a [Azure Portal](https://portal.azure.com)
+2. Busca "Computer Vision" y crea un recurso
+3. Selecciona el **Free tier** (5,000 requests/mes)
+4. Ve a "Keys and Endpoint"
+5. Copia los valores a tu archivo `.env`:
+   ```
+   EXPO_PUBLIC_AZURE_CV_API_KEY=tu-key
+   EXPO_PUBLIC_AZURE_CV_ENDPOINT=https://tu-recurso.cognitiveservices.azure.com
+   ```
+
+**Sin Azure:** La app funciona perfectamente con solo TensorFlow Lite local.
 
 ### Build en Dispositivo
 
@@ -182,10 +208,12 @@ botella, taza, tenedor, cuchillo, cuchara, bol, plátano, manzana, sandwich
 
 | Operación | Primera vez | Subsecuente |
 |-----------|-------------|-------------|
-| Carga modelo | 500-1000ms | 0ms (en memoria) |
+| Carga modelo TFLite | 500-1000ms | 0ms (en memoria) |
 | Captura foto | 200ms | 200ms |
 | Inferencia TFLite | 200-500ms | 200-500ms |
-| **Total** | **~1-2s** | **~500-800ms** |
+| Azure (si online) | +500-1000ms | +500-1000ms |
+| **Total (offline)** | **~1-2s** | **~500-800ms** |
+| **Total (online)** | **~2-3s** | **~1.5-2s** |
 
 ### Recursos
 
@@ -216,12 +244,31 @@ npx tsc --noEmit
 
 ---
 
-## 📚 Documentación
+## 📚 Documentation
 
-- [BUILDING.md](./BUILDING.md) - Instrucciones de build detalladas
-- [VISION_SERVICE.md](./docs/VISION_SERVICE.md) - Arquitectura del sistema de visión
+### Setup & Build
+- [BUILDING.md](./docs/setup/BUILDING.md) - Detailed build instructions
+- [SETUP.md](./docs/setup/SETUP.md) - Development environment setup
+
+### Architecture
 - [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - Clean Architecture patterns
-- [VOICE_RECOGNITION.md](./docs/VOICE_RECOGNITION.md) - Sistema de reconocimiento de voz
+- [VISION_SERVICE.md](./docs/VISION_SERVICE.md) - Vision system architecture
+
+### Vision
+- [MIGRATION_GEMINI_TO_AZURE.md](./docs/vision/MIGRATION_GEMINI_TO_AZURE.md) - Gemini → Azure migration guide
+- [TFLITE_SETUP.md](./docs/vision/TFLITE_SETUP.md) - TensorFlow Lite setup
+
+### Voice
+- [VOICE_RECOGNITION.md](./docs/VOICE_RECOGNITION.md) - Voice recognition system
+- [REAL_VOICE_IMPLEMENTATION.md](./docs/voice/REAL_VOICE_IMPLEMENTATION.md) - Real voice implementation
+- [VOICE_SETUP.md](./docs/voice/VOICE_SETUP.md) - Voice setup guide
+- [WAKE_WORD_SIMPLE.md](./docs/voice/WAKE_WORD_SIMPLE.md) - Simple wake word detection
+- [PICOVOICE_SETUP.md](./docs/voice/PICOVOICE_SETUP.md) - Picovoice integration
+
+### Development
+- [DEV_MODE.md](./docs/dev/DEV_MODE.md) - Development mode guide
+- [STATUS.md](./docs/dev/STATUS.md) - Current project status
+- [NEXT_STEPS.md](./docs/dev/NEXT_STEPS.md) - Next steps and roadmap
 
 ---
 
