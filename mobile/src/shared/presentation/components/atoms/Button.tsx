@@ -1,7 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, View, StyleSheet, ActivityIndicator, TouchableOpacityProps } from 'react-native';
 
-// Type para evitar el error con typeof
+// Type to avoid type error with typeof
 declare global {
   namespace JSX {
     interface IntrinsicElements {
@@ -10,15 +10,41 @@ declare global {
   }
 }
 
+/**
+ * Visual style variant for button appearance
+ * 
+ * @public
+ */
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'danger';
+
+/**
+ * Size preset for button padding and minimum height
+ * 
+ * @public
+ */
 export type ButtonSize = 'small' | 'medium' | 'large';
 
+/**
+ * Props for the Button component
+ * 
+ * @remarks
+ * Extends React Native's TouchableOpacityProps with additional button-specific properties.
+ * The component automatically handles disabled and loading states.
+ * 
+ * @public
+ */
 export interface ButtonProps extends Omit<TouchableOpacityProps, 'children'> {
+  /** Text label displayed on the button */
   label: string;
+  /** Visual style variant applied to button (default: primary) */
   variant?: ButtonVariant;
+  /** Preset size affecting padding and height (default: medium) */
   size?: ButtonSize;
+  /** If true, button is non-interactive with reduced opacity */
   disabled?: boolean;
+  /** If true, displays loading spinner and disables interaction */
   loading?: boolean;
+  /** Accessibility hint describing button action */
   accessibilityHint?: string;
 }
 
@@ -76,6 +102,38 @@ const textVariantStyles: Record<ButtonVariant, TextStyle> = {
   },
 };
 
+/**
+ * Reusable button component with multiple style variants and sizes
+ * 
+ * Provides accessible, customizable buttons with built-in support for loading and disabled states.
+ * Includes full accessibility support for screen readers and proper visual feedback.
+ * 
+ * @param props - Button component props
+ * @returns Rendered button component
+ * 
+ * @example
+ * ```typescript
+ * // Primary button
+ * <Button label="Start" onPress={handleStart} />
+ * 
+ * // Danger button with loading
+ * <Button
+ *   label="Delete"
+ *   variant="danger"
+ *   loading={isDeleting}
+ *   onPress={handleDelete}
+ * />
+ * 
+ * // Outline button, disabled
+ * <Button
+ *   label="Cancel"
+ *   variant="outline"
+ *   disabled={true}
+ * />
+ * ```
+ * 
+ * @public
+ */
 export function Button({
   label,
   variant = 'primary',

@@ -2,16 +2,27 @@ import { Porcupine, PorcupineErrors } from '@picovoice/porcupine-react-native';
 import * as Notifications from 'expo-notifications';
 
 /**
- * PorcupineWakeWordService
+ * Always-on wake word detection service using Porcupine
  * 
- * Always-on wake word detection for visually impaired users.
- * Listens for "picovoice" (built-in) or custom "iris" wake word.
+ * Provides efficient on-device wake word detection for visually impaired users.
+ * Runs continuously in background with minimal battery impact.
  * 
+ * @remarks
  * Features:
- * - Low battery consumption (~1-3% per hour)
- * - On-device processing (privacy)
- * - Background operation
- * - Automatic app activation on detection
+ * - Ultra-low battery consumption (~1-3% per hour)
+ * - On-device processing (privacy-respecting)
+ * - Background operation without internet
+ * - Automatic app activation on wake word detection
+ * - Customizable sensitivity per wake word
+ * 
+ * Current Configuration:
+ * - Uses built-in "picovoice" wake word (free)
+ * - For custom "iris" wake word: train at console.picovoice.ai
+ * 
+ * Singleton Pattern:
+ * Use getInstance() to access the service.
+ * 
+ * @public
  */
 export class PorcupineWakeWordService {
   private static instance: PorcupineWakeWordService | null = null;
@@ -30,7 +41,9 @@ export class PorcupineWakeWordService {
   private constructor() {}
 
   /**
-   * Get singleton instance
+   * Gets or creates the singleton instance
+   * 
+   * @returns The singleton PorcupineWakeWordService instance
    */
   static getInstance(): PorcupineWakeWordService {
     if (!PorcupineWakeWordService.instance) {
@@ -39,10 +52,21 @@ export class PorcupineWakeWordService {
     return PorcupineWakeWordService.instance;
   }
 
-  /**
-   * Initialize Porcupine wake word engine
-   */
-  async initialize(): Promise<void> {
+   /**
+    * Initializes the Porcupine wake word engine
+    * 
+    * Sets up notification permissions, configures notification handler,
+    * and creates Porcupine instance for wake word detection.
+    * 
+    * @returns Promise that resolves when initialization is complete
+    * @throws {Error} If access key is invalid or notifications permission denied
+    * @throws {Error} If Porcupine initialization fails
+    * 
+    * @remarks
+    * Must be called before start(). Safe to call multiple times.
+    * Requires notification permission for background wake word detection.
+    */
+   async initialize(): Promise<void> {
     try {
       console.log('[PorcupineWakeWordService] Initializing...');
 
@@ -79,10 +103,21 @@ export class PorcupineWakeWordService {
     }
   }
 
-  /**
-   * Start listening for wake word in background
-   */
-  async start(onWakeWord: () => void): Promise<void> {
+   /**
+    * Starts listening for wake word detection
+    * 
+    * Begins background listening for configured wake words.
+    * Fires callback when wake word is detected.
+    * 
+    * @param onWakeWord - Callback invoked when wake word detected
+    * @returns Promise that resolves when listening starts
+    * @throws {Error} If Porcupine not initialized
+    * 
+    * @remarks
+    * Call initialize() first. Safe to call multiple times.
+    * Runs in background even when app is backgrounded.
+    */
+   async start(onWakeWord: () => void): Promise<void> {
     if (!this.porcupine) {
       throw new Error('Porcupine not initialized. Call initialize() first.');
     }

@@ -5,32 +5,68 @@ import {
   ExpoSpeechRecognitionErrorCode,
 } from 'expo-speech-recognition';
 
+/**
+ * Result from speech recognition transcription
+ * 
+ * @public
+ */
 export interface SpeechRecognitionResult {
+  /** Transcribed text from speech input */
   transcript: string;
+  /** Confidence score of transcription (0.0-1.0) */
   confidence: number;
+  /** True if this is the final result, false for interim/partial results */
   isFinal: boolean;
 }
 
+/**
+ * Configuration options for the speech recognizer
+ * 
+ * @public
+ */
 export interface SpeechRecognizerOptions {
+  /** Language code for recognition (default: 'es-ES' Spanish) */
   language?: string;
+  /** Callback fired when final speech result is available */
   onResult?: (result: SpeechRecognitionResult) => void;
+  /** Callback fired when an error occurs during recognition */
   onError?: (error: Error) => void;
+  /** Callback fired when recognition starts */
   onStart?: () => void;
+  /** Callback fired when recognition ends */
   onEnd?: () => void;
+  /** Callback fired for interim/partial recognition results in real-time */
   onPartialResult?: (result: SpeechRecognitionResult) => void;
 }
 
 /**
- * ExpoSpeechRecognitionAdapter - Speech recognition using Expo SDK
+ * Speech recognition adapter using Expo Speech Recognition
  * 
- * Uses expo-speech-recognition which is simpler and better integrated
- * with Expo than @react-native-voice/voice.
+ * Implements real-time speech-to-text using the Expo SDK with support for
+ * partial results, error handling, and multilingual recognition.
  * 
+ * @remarks
  * Features:
  * - Built into Expo SDK 54+
- * - Automatic permission handling
- * - Real-time transcription (partial results)
- * - Works on Android and iOS
+ * - Automatic microphone permission handling
+ * - Real-time partial transcription results
+ * - Works on Android and iOS with native speech engines
+ * - Supports Spanish and English (configurable)
+ * 
+ * @example
+ * ```typescript
+ * const recognizer = new ExpoSpeechRecognitionAdapter({
+ *   language: 'es-ES',
+ *   onResult: (result) => console.log('Final:', result.transcript),
+ *   onPartialResult: (result) => console.log('Interim:', result.transcript),
+ *   onError: (error) => console.error('Error:', error),
+ * });
+ * 
+ * await recognizer.initialize();
+ * await recognizer.startListening();
+ * ```
+ * 
+ * @public
  */
 export class ExpoSpeechRecognitionAdapter {
   private isInitialized = false;
@@ -38,17 +74,43 @@ export class ExpoSpeechRecognitionAdapter {
   private options: SpeechRecognizerOptions;
   private recognitionInstance: any = null;
 
-  constructor(options: SpeechRecognizerOptions = {}) {
-    this.options = {
-      language: 'es-ES', // Spanish by default
-      ...options,
-    };
-  }
+   /**
+    * Creates an instance of ExpoSpeechRecognitionAdapter
+    * 
+    * @param options - Configuration for speech recognition behavior
+    */
+   constructor(options: SpeechRecognizerOptions = {}) {
+     this.options = {
+       language: 'es-ES', // Spanish by default
+       ...options,
+     };
+   }
 
-  /**
-   * Initialize speech recognition
-   */
-  async initialize(): Promise<void> {
+   /**
+    * Initializes the speech recognition engine
+    * 
+    * Checks device capabilities, verifies speech recognition availability,
+    * and requests microphone permissions from the user.
+    * Must be called before startListening().
+    * 
+    * @returns Promise that resolves when initialization is complete
+    * @throws {Error} When speech recognition is not available
+    * @throws {Error} When microphone permission is denied
+    * 
+    * @remarks
+    * Safe to call multiple times - subsequent calls do nothing if already initialized.
+    * Permission prompt is shown on first call.
+    * 
+    * @example
+    * ```typescript
+    * try {
+    *   await recognizer.initialize();
+    * } catch (error) {
+    *   console.error('Failed to initialize:', error);
+    * }
+    * ```
+    */
+   async initialize(): Promise<void> {
     try {
       console.log('[ExpoSpeechRecognitionAdapter] Initializing...');
 
@@ -74,10 +136,23 @@ export class ExpoSpeechRecognitionAdapter {
     }
   }
 
-  /**
-   * Start listening for speech
-   */
-  async startListening(): Promise<void> {
+   /**
+    * Starts listening for speech input
+    * 
+    * Enables microphone and begins transcribing speech to text.
+    * Automatically initializes if not already done.
+    * Emits partial results in real-time and final result when speech ends.
+    * 
+    * @returns Promise that resolves when listening starts
+    * @throws {Error} If initialization fails or microphone unavailable
+    * 
+    * @remarks
+    * Stops automatically after one complete utterance (non-continuous mode).
+    * Calls onStart callback when recognition begins.
+    * Calls onPartialResult for interim transcriptions.
+    * Calls onResult and onEnd when complete.
+    */
+   async startListening(): Promise<void> {
     if (!this.isInitialized) {
       await this.initialize();
     }
@@ -113,10 +188,19 @@ export class ExpoSpeechRecognitionAdapter {
     }
   }
 
-  /**
-   * Stop listening
-   */
-  async stopListening(): Promise<void> {
+   /**
+    * Stops listening for speech input
+    * 
+    * Terminates microphone access and speech recognition.
+    * Waits for any pending transcription to complete before stopping.
+    * 
+    * @returns Promise that resolves when listening stops
+    * 
+    * @remarks
+    * Safe to call if not currently listening.
+    * Calls onEnd callback when recognition ends.
+    */
+   async stopListening(): Promise<void> {
     if (!this.isRecording) {
       console.warn('[ExpoSpeechRecognitionAdapter] Not currently recording');
       return;
@@ -138,10 +222,18 @@ export class ExpoSpeechRecognitionAdapter {
     }
   }
 
-  /**
-   * Cancel current recognition
-   */
-  async cancel(): Promise<void> {
+   /**
+    * Aborts active speech recognition without waiting for completion
+    * 
+    * Forcefully stops listening and discards pending results.
+    * Use this for canceling by user request or timeout.
+    * 
+    * @returns Promise that resolves when recognition is aborted
+    * 
+    * @remarks
+    * Differs from stopListening() - no callbacks are fired.
+    */
+   async cancel(): Promise<void> {
     try {
       console.log('[ExpoSpeechRecognitionAdapter] Cancelling...');
       
@@ -155,17 +247,27 @@ export class ExpoSpeechRecognitionAdapter {
     }
   }
 
-  /**
-   * Check if currently listening
-   */
-  isListening(): boolean {
-    return this.isRecording;
-  }
+   /**
+    * Checks if actively listening for speech
+    * 
+    * @returns True if currently recording/recognizing
+    */
+   isListening(): boolean {
+     return this.isRecording;
+   }
 
-  /**
-   * Get supported languages
-   */
-  async getSupportedLanguages(): Promise<string[]> {
+   /**
+    * Retrieves list of language codes supported by the device
+    * 
+    * Returns all languages available for speech recognition on the device.
+    * 
+    * @returns Promise resolving to array of language codes (e.g., ['es-ES', 'en-US'])
+    * 
+    * @remarks
+    * Returns empty array if language detection fails.
+    * Uses device's native speech recognition service.
+    */
+   async getSupportedLanguages(): Promise<string[]> {
     try {
       const result = await ExpoSpeechRecognitionModule.getSupportedLocales({ androidRecognitionServicePackage: undefined });
       console.log('[ExpoSpeechRecognitionAdapter] Supported languages:', result);
@@ -176,11 +278,16 @@ export class ExpoSpeechRecognitionAdapter {
     }
   }
 
-  /**
-   * Set up event handler for results
-   * This should be called from a React component using useSpeechRecognitionEvent
-   */
-  handleResult(event: any): void {
+   /**
+    * Processes speech recognition result events
+    * 
+    * Called by useSpeechRecognitionEvent hook to handle transcription results.
+    * Filters and routes partial vs final results to appropriate callbacks.
+    * 
+    * @param event - The raw recognition event from Expo module
+    * @internal
+    */
+   handleResult(event: any): void {
     if (!event.results || event.results.length === 0) {
       return;
     }
@@ -211,10 +318,16 @@ export class ExpoSpeechRecognitionAdapter {
     }
   }
 
-  /**
-   * Handle error events
-   */
-  handleError(event: any): void {
+   /**
+    * Processes speech recognition error events
+    * 
+    * Maps native error codes to user-friendly error messages
+    * and fires onError callback with detailed error information.
+    * 
+    * @param event - The error event from Expo module
+    * @internal
+    */
+   handleError(event: any): void {
     const errorCode = event.error;
     let errorMessage = 'Speech recognition error';
 
@@ -255,28 +368,44 @@ export class ExpoSpeechRecognitionAdapter {
     this.options.onError?.(new Error(errorMessage));
   }
 
-  /**
-   * Handle start event
-   */
-  handleStart(): void {
-    console.log('[ExpoSpeechRecognitionAdapter] Recognition started');
-    this.isRecording = true;
-    this.options.onStart?.();
-  }
+   /**
+    * Handles speech recognition start event
+    * 
+    * Called when recognition engine begins processing audio.
+    * Updates internal state and fires onStart callback.
+    * 
+    * @internal
+    */
+   handleStart(): void {
+     console.log('[ExpoSpeechRecognitionAdapter] Recognition started');
+     this.isRecording = true;
+     this.options.onStart?.();
+   }
 
-  /**
-   * Handle end event
-   */
-  handleEnd(): void {
-    console.log('[ExpoSpeechRecognitionAdapter] Recognition ended');
-    this.isRecording = false;
-    this.options.onEnd?.();
-  }
+   /**
+    * Handles speech recognition end event
+    * 
+    * Called when recognition engine finishes processing.
+    * Updates internal state and fires onEnd callback.
+    * 
+    * @internal
+    */
+   handleEnd(): void {
+     console.log('[ExpoSpeechRecognitionAdapter] Recognition ended');
+     this.isRecording = false;
+     this.options.onEnd?.();
+   }
 
-  /**
-   * Clean up resources
-   */
-  async destroy(): Promise<void> {
+   /**
+    * Cleans up resources and stops listening
+    * 
+    * Stops active listening, resets initialization state,
+    * and releases any held resources.
+    * Safe to call multiple times.
+    * 
+    * @returns Promise that resolves when cleanup is complete
+    */
+   async destroy(): Promise<void> {
     try {
       if (this.isRecording) {
         await this.stopListening();
@@ -289,10 +418,23 @@ export class ExpoSpeechRecognitionAdapter {
     }
   }
 
-  /**
-   * Update options
-   */
-  setOptions(options: Partial<SpeechRecognizerOptions>): void {
-    this.options = { ...this.options, ...options };
-  }
+   /**
+    * Updates recognizer configuration options
+    * 
+    * Allows changing language, callbacks, and other settings at runtime.
+    * Changes take effect on next startListening() call.
+    * 
+    * @param options - Partial options to merge with current configuration
+    * 
+    * @example
+    * ```typescript
+    * recognizer.setOptions({
+    *   language: 'en-US',
+    *   onResult: newCallback,
+    * });
+    * ```
+    */
+   setOptions(options: Partial<SpeechRecognizerOptions>): void {
+     this.options = { ...this.options, ...options };
+   }
 }

@@ -1,8 +1,14 @@
 /**
- * ExpoCameraAdapter - Implementación de ICameraService usando expo-camera
+ * Camera service adapter using Expo Camera
  * 
- * Adaptador que implementa la interfaz ICameraService usando expo-camera.
- * Maneja permisos, captura de fotos y limpieza de recursos.
+ * Implements the ICameraService port using the Expo Camera SDK.
+ * Handles permission management, photo capture, and resource cleanup.
+ * 
+ * @remarks
+ * Requires a CameraView ref from a React component to capture photos.
+ * Works on both iOS and Android with native camera hardware.
+ * 
+ * @public
  */
 
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
@@ -14,18 +20,36 @@ import {
   CapturedImage,
 } from '../../../application/ports/ICameraService';
 
+/**
+ * Adapter implementing photo capture using Expo Camera
+ * 
+ * @public
+ */
 export class ExpoCameraAdapter implements ICameraService {
   private cameraRef: CameraView | null = null;
 
   /**
-   * Establece la referencia a la cámara (desde el componente React)
+   * Sets the reference to the camera component from React
+   * 
+   * Must be called before capturePhoto() to enable photo capture.
+   * Typically called from CameraCapture component.
+   * 
+   * @param ref - Reference to CameraView component or null to clear
+   * 
+   * @example
+   * ```typescript
+   * const cameraRef = useRef<CameraView>(null);
+   * adapter.setCameraRef(cameraRef.current);
+   * ```
    */
   setCameraRef(ref: CameraView | null): void {
     this.cameraRef = ref;
   }
 
   /**
-   * Verifica si la app tiene permisos de cámara
+   * Checks if the application has camera permission
+   * 
+   * @returns Promise resolving to true if permission is granted
    */
   async hasPermission(): Promise<boolean> {
     try {
@@ -40,10 +64,14 @@ export class ExpoCameraAdapter implements ICameraService {
     }
   }
 
-  /**
-   * Solicita permisos de cámara al usuario
-   */
-  async requestPermissions(): Promise<CameraPermissionStatus> {
+   /**
+    * Requests camera permission from the user
+    * 
+    * Shows system permission dialog on first request.
+    * 
+    * @returns Promise resolving to permission status
+    */
+   async requestPermissions(): Promise<CameraPermissionStatus> {
     try {
       const Camera = await import('expo-camera');
       const [permission, requestPermission] = await (Camera as any).Camera.requestCameraPermissionsAsync();
@@ -64,10 +92,18 @@ export class ExpoCameraAdapter implements ICameraService {
     }
   }
 
-  /**
-   * Captura una foto y retorna su información
-   */
-  async capturePhoto(options: CaptureOptions = {}): Promise<CapturedImage> {
+   /**
+    * Captures a photo from the camera
+    * 
+    * Requires camera ref to be set via setCameraRef().
+    * Applies quality and format options to the captured image.
+    * 
+    * @param options - Photo capture configuration
+    * @returns Promise resolving to captured image metadata
+    * @throws {Error} If camera ref is not set
+    * @throws {Error} If capture fails
+    */
+   async capturePhoto(options: CaptureOptions = {}): Promise<CapturedImage> {
     if (!this.cameraRef) {
       throw new Error('Camera ref not set. Call setCameraRef() first.');
     }
@@ -109,24 +145,28 @@ export class ExpoCameraAdapter implements ICameraService {
     }
   }
 
-  /**
-   * Verifica si el dispositivo tiene cámara disponible
-   */
-  async isCameraAvailable(): Promise<boolean> {
-    try {
-      // expo-camera siempre asume que hay cámara
-      // En devices sin cámara, Camera.isAvailableAsync() podría no existir
-      return true;
-    } catch (error) {
-      console.error('[ExpoCameraAdapter] Error checking camera availability:', error);
-      return false;
-    }
-  }
+   /**
+    * Checks if the device has camera hardware available
+    * 
+    * @returns Promise resolving to true if camera hardware available
+    */
+   async isCameraAvailable(): Promise<boolean> {
+     try {
+       // expo-camera assumes camera is available on all devices
+       // Devices without camera (rare) would fail elsewhere
+       return true;
+     } catch (error) {
+       console.error('[ExpoCameraAdapter] Error checking camera availability:', error);
+       return false;
+     }
+   }
 
-  /**
-   * Limpia archivos temporales de fotos capturadas
-   */
-  async cleanup(): Promise<void> {
+   /**
+    * Cleans up temporary resources used for photo capture
+    * 
+    * @returns Promise that resolves when cleanup is complete
+    */
+   async cleanup(): Promise<void> {
     try {
       // Las fotos capturadas se guardan en el directorio de caché
       // Podríamos limpiarlas manualmente si es necesario
