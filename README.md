@@ -4,10 +4,13 @@ Voice-activated AI assistant that describes the visual world for visually impair
 
 > Created for a grandfather who was a photographer before losing his sight.
 
+![Version](https://img.shields.io/badge/v0.2.0-blue?style=flat-square)
+![License](https://img.shields.io/badge/MIT-green?style=flat-square)
+
 ## Features
 
 - **Hands-free voice activation** - "Hey Iris, describe"
-- **On-device vision AI** - Works offline with TensorFlow Lite
+- **Hybrid vision AI** - TFLite (offline) + Azure Computer Vision (online enrichment)
 - **Natural speech output** - Clear descriptions in Spanish
 - **Battery optimized** - Runs efficiently with dimmed screen
 - **Privacy first** - All processing stays on your device
@@ -21,9 +24,9 @@ iris/
 │   │   ├── voice/          # Voice commands feature
 │   │   ├── vision/         # Scene analysis feature
 │   │   └── shared/         # Shared components & utilities
-│   ├── app.json            # Expo configuration
+│   ├── docs/               # Setup & development guides
 │   └── package.json
-├── skills/                 # AI agent skills
+├── skills/                 # AI agent skills (for Claude Code)
 └── AGENTS.md               # AI agent guidelines
 ```
 
@@ -34,7 +37,8 @@ iris/
 | Framework | React Native | 0.81.5 |
 | Platform | Expo SDK | 54 |
 | Runtime | React | 19.1.0 |
-| Vision AI | TensorFlow Lite | - |
+| Vision AI (local) | TensorFlow Lite | - |
+| Vision AI (cloud) | Azure Computer Vision | - |
 | Models | COCO-SSD, MobileNet | - |
 | Voice | `@react-native-voice/voice`, `expo-speech` | - |
 
@@ -80,36 +84,70 @@ The mobile app follows **Screaming Architecture + Clean Architecture + Atomic De
 ```
 mobile/src/
 ├── voice/                  # Feature: Voice commands
-│   ├── domain/             # Business logic
+│   ├── domain/             # Business logic (entities, value-objects)
 │   ├── application/        # Use cases
-│   ├── infrastructure/     # External adapters
+│   ├── infrastructure/     # External adapters (speech recognition, TTS)
 │   └── presentation/       # UI components & hooks
 │
 ├── vision/                 # Feature: Scene analysis
 │   ├── domain/
-│   ├── application/
-│   ├── infrastructure/
-│   └── presentation/
+│   ├── application/        # Services (TranslationService)
+│   ├── infrastructure/     # Adapters (TFLite, Azure, Hybrid)
+│   └── presentation/       # UI components & hooks
 │
 └── shared/                 # Cross-cutting concerns
     ├── di/                 # Dependency injection
     └── presentation/
         └── components/
             ├── atoms/      # Button, Icon, Typography
-            ├── molecules/  # IconButton, StatusIndicator
-            ├── organisms/  # Complex sections
-            ├── templates/  # Page layouts
-            └── pages/      # Complete screens
+            ├── molecules/  # ImagePicker, VisionTestPanel
+            ├── organisms/
+            ├── templates/
+            └── pages/      # HomeScreen, TestScreen
+```
+
+### Vision system
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    User takes photo                  │
+└─────────────────────────────────────────────────────┘
+                           │
+                           ▼
+            ┌──────────────────────────────┐
+            │    TFLite (COCO-SSD)         │
+            │    ~200ms, offline           │
+            │    Objects with coords       │
+            └──────────────────────────────┘
+                           │
+              ┌────────────┴────────────┐
+              │      Internet?          │
+              └────────────┬────────────┘
+                    NO     │     YES
+                           ▼
+              ┌────────────────┐   ┌────────────────────────┐
+              │ Use TFLite     │   │ Azure Computer Vision  │
+              │ description    │   │ ~1-2s, enriches with   │
+              │ only           │   │ natural description    │
+              └────────────────┘   └────────────────────────┘
+                           │               │
+                           └───────┬───────┘
+                                   ▼
+                        ┌─────────────────────┐
+                        │  Hybrid Result      │
+                        │  - Objects (TFLite) │
+                        │  - Description (Azure) │
+                        └─────────────────────┘
 ```
 
 ## Why local-first?
 
 | Benefit | Description |
 |---------|-------------|
-| Free | No API costs |
-| Offline | No internet required |
+| Free | No API costs (TFLite) |
+| Offline | No internet required for basic functionality |
 | Private | Data never leaves device |
-| Fast | No network latency |
+| Fast | No network latency for object detection |
 | Reliable | No rate limits |
 
 ### Model specs
@@ -118,6 +156,17 @@ mobile/src/
 - **MobileNet**: 1000+ image categories
 - **Size**: ~5MB total
 - **Speed**: ~200ms on modern devices
+
+## AI Agent Skills
+
+This project includes **AI agent skills** for Claude Code to help with development:
+
+| Skill | Description |
+|-------|-------------|
+| `iris-architecture` | Clean Architecture patterns for Iris |
+| `tsdoc-comments` | TSDoc-compliant documentation |
+
+Run `ls skills/` to see available skills.
 
 ## Build for production
 
