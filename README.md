@@ -1,159 +1,153 @@
-# AI Agent Skills Template
+# Iris
 
-A project-agnostic template for configuring AI coding assistants with reusable skills. Compatible with Claude Code, Gemini CLI, Codex (OpenAI), and GitHub Copilot.
+Voice-activated AI assistant that describes the visual world for visually impaired users.
+
+> Created for a grandfather who was a photographer before losing his sight.
 
 ## Features
 
-- Unified skills system across multiple AI assistants
-- Project-agnostic design (works with any codebase)
-- Automatic skill synchronization to AGENTS.md
-- Interactive setup for different AI tools
-- Built-in generic skills for common tasks
+- **Hands-free voice activation** - "Hey Iris, describe"
+- **On-device vision AI** - Works offline with TensorFlow Lite
+- **Natural speech output** - Clear descriptions in Spanish
+- **Battery optimized** - Runs efficiently with dimmed screen
+- **Privacy first** - All processing stays on your device
+
+## Repository structure
+
+```
+iris/
+├── mobile/                 # React Native + Expo app
+│   ├── src/
+│   │   ├── voice/          # Voice commands feature
+│   │   ├── vision/         # Scene analysis feature
+│   │   └── shared/         # Shared components & utilities
+│   ├── app.json            # Expo configuration
+│   └── package.json
+├── skills/                 # AI agent skills
+└── AGENTS.md               # AI agent guidelines
+```
+
+## Tech stack
+
+| Layer | Technology | Version |
+|-------|------------|---------|
+| Framework | React Native | 0.81.5 |
+| Platform | Expo SDK | 54 |
+| Runtime | React | 19.1.0 |
+| Vision AI | TensorFlow Lite | - |
+| Models | COCO-SSD, MobileNet | - |
+| Voice | `@react-native-voice/voice`, `expo-speech` | - |
 
 ## Quick start
 
+### Prerequisites
+
+- Node.js >= 18
+- Bun (recommended) or npm
+- iOS Simulator or Android Emulator (or physical device)
+
+### Installation
+
 ```bash
-# Clone the template
-git clone https://github.com/your-org/agents.git
-cd agents
+# Navigate to mobile app
+cd mobile
 
-# Run setup for your AI assistant
-./skills/setup.sh --claude    # Claude Code
-./skills/setup.sh --gemini    # Gemini CLI
-./skills/setup.sh --codex     # Codex (OpenAI)
-./skills/setup.sh --copilot   # GitHub Copilot
-./skills/setup.sh --all       # All assistants
-./skills/setup.sh             # Interactive mode
+# Install dependencies
+bun install
+
+# Start development server
+bun start
+
+# Run on device
+bun run ios     # iOS
+bun run android # Android
 ```
 
-## Project structure
+## Voice commands
+
+| Command | Action |
+|---------|--------|
+| "Iris, what's in front of me?" | Capture and describe |
+| "Iris, describe" | Alternative capture |
+| "Iris, repeat" | Repeat last description |
+| "Iris, help" | List commands |
+| "Iris, goodbye" | Close assistant |
+
+## Architecture
+
+The mobile app follows **Screaming Architecture + Clean Architecture + Atomic Design**:
 
 ```
-.
-├── AGENTS.md                 # Main AI instructions (source of truth)
-├── skills/
-│   ├── setup.sh              # AI assistant configuration script
-│   ├── setup_test.sh         # Tests for setup script
-│   │
-│   ├── skill-creator/        # Meta-skill: create new skills
-│   ├── skill-sync/           # Meta-skill: sync skills to AGENTS.md
-│   │
-│   ├── documentation/        # Generic: write documentation
-│   ├── git-commit/           # Generic: conventional commits
-│   └── git-tags/             # Generic: semantic versioning
+mobile/src/
+├── voice/                  # Feature: Voice commands
+│   ├── domain/             # Business logic
+│   ├── application/        # Use cases
+│   ├── infrastructure/     # External adapters
+│   └── presentation/       # UI components & hooks
 │
-├── .claude/skills -> skills/ # Symlink (created by setup.sh)
-├── .gemini/skills -> skills/ # Symlink (created by setup.sh)
-└── .codex/skills -> skills/  # Symlink (created by setup.sh)
+├── vision/                 # Feature: Scene analysis
+│   ├── domain/
+│   ├── application/
+│   ├── infrastructure/
+│   └── presentation/
+│
+└── shared/                 # Cross-cutting concerns
+    ├── di/                 # Dependency injection
+    └── presentation/
+        └── components/
+            ├── atoms/      # Button, Icon, Typography
+            ├── molecules/  # IconButton, StatusIndicator
+            ├── organisms/  # Complex sections
+            ├── templates/  # Page layouts
+            └── pages/      # Complete screens
 ```
 
-## Skills system
+## Why local-first?
 
-Skills are reusable knowledge modules that AI agents invoke for specific tasks. Each skill lives in `skills/{skill-name}/SKILL.md`.
+| Benefit | Description |
+|---------|-------------|
+| Free | No API costs |
+| Offline | No internet required |
+| Private | Data never leaves device |
+| Fast | No network latency |
+| Reliable | No rate limits |
 
-### Included skills
+### Model specs
 
-| Skill | Type | Description |
-|-------|------|-------------|
-| `skill-creator` | Meta | Create new AI agent skills |
-| `skill-sync` | Meta | Sync skills to AGENTS.md tables |
-| `documentation` | Generic | Write READMEs, API docs, guides |
-| `git-commit` | Generic | Conventional commits workflow |
-| `git-tags` | Generic | Semantic versioning with tags |
+- **COCO-SSD**: 80+ common objects (person, chair, cup, etc.)
+- **MobileNet**: 1000+ image categories
+- **Size**: ~5MB total
+- **Speed**: ~200ms on modern devices
 
-### Creating new skills
+## Build for production
 
 ```bash
-# Skills follow this structure
-skills/{skill-name}/
-├── SKILL.md          # Required: skill definition
-├── assets/           # Optional: templates, schemas
-└── references/       # Optional: links to docs
+cd mobile
+
+# Android
+eas build --platform android --profile preview
+
+# iOS
+eas build --platform ios --profile preview
 ```
 
-Each SKILL.md has YAML frontmatter:
+## Roadmap
 
-```yaml
----
-name: my-skill
-description: >
-  What this skill does.
-  Trigger: When to invoke it.
-license: Apache-2.0
-metadata:
-  author: your-name
-  version: "1.0"
-  scope: [root]           # Which AGENTS.md to update
-  auto_invoke:            # Actions that trigger this skill
-    - "Doing something"
-    - "Doing something else"
----
-```
+- [ ] English language support
+- [ ] Continuous description mode
+- [ ] Distance estimation
+- [ ] Face recognition (opt-in)
+- [ ] Text reading (OCR)
+- [ ] Navigation assistance
 
-### Syncing skills
+## Contributing
 
-After creating or modifying a skill, sync to AGENTS.md:
-
-```bash
-./skills/skill-sync/assets/sync.sh           # Update all
-./skills/skill-sync/assets/sync.sh --dry-run # Preview changes
-./skills/skill-sync/assets/sync.sh --scope root # Specific scope
-```
-
-## Customization
-
-### Adding project-specific skills
-
-1. Create skill directory: `mkdir -p skills/my-project-skill`
-2. Create `SKILL.md` with frontmatter and content
-3. Run `./skills/skill-sync/assets/sync.sh`
-
-### Configuring AGENTS.md
-
-Edit `AGENTS.md` to customize:
-
-- **Project Overview**: Your tech stack and components
-- **Development Setup**: Your setup commands
-- **Code Quality**: Your linting/formatting commands
-- **Commit Guidelines**: Your conventions
-
-### Multi-component projects
-
-For monorepos, create component-specific AGENTS.md files:
-
-```
-.
-├── AGENTS.md           # Root guidelines
-├── frontend/
-│   └── AGENTS.md       # Frontend-specific
-├── backend/
-│   └── AGENTS.md       # Backend-specific
-└── skills/
-    └── my-skill/
-        └── SKILL.md    # scope: [root, frontend, backend]
-```
-
-## Running tests
-
-```bash
-# Test setup script
-./skills/setup_test.sh
-
-# Test sync script
-./skills/skill-sync/assets/sync_test.sh
-```
-
-## How it works
-
-1. **AGENTS.md** is the source of truth for AI instructions
-2. **setup.sh** creates symlinks and copies for each AI assistant:
-   - Claude: `.claude/skills/` + `CLAUDE.md`
-   - Gemini: `.gemini/skills/` + `GEMINI.md`
-   - Codex: `.codex/skills/` (uses AGENTS.md natively)
-   - Copilot: `.github/copilot-instructions.md`
-3. **Skills** provide detailed instructions loaded on-demand
-4. **sync.sh** keeps auto-invoke tables updated
+1. Fork the project
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
-Apache-2.0
+MIT

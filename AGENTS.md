@@ -74,18 +74,29 @@ _No auto-invoke rules registered yet._
 
 ## Project Overview
 
-<!-- Customize this section for your project -->
+Iris is a voice-activated AI assistant that describes the visual world for visually impaired users. All vision processing happens on-device using TensorFlow Lite.
 
 | Component | Location | Tech Stack |
 |-----------|----------|------------|
-| _Example_ | `src/` | _Your stack_ |
+| App Entry | `App.js` | React Native + Expo |
+| Vision AI | `models/VisionModel.js` | TensorFlow Lite, COCO-SSD, MobileNet |
+| Voice | `utils/VoiceHandler.js` | `@react-native-voice/voice`, `expo-speech` |
+| Config | `AssistantConfig.js` | Voice settings, personality |
 
 ---
 
 ## Development Setup
 
 ```bash
-# Add your setup commands here
+# Install dependencies
+npm install
+
+# Start development server
+npx expo start
+
+# Run on device
+npx expo run:ios     # iOS
+npx expo run:android # Android
 ```
 
 ---
@@ -93,7 +104,11 @@ _No auto-invoke rules registered yet._
 ## Code Quality
 
 ```bash
-# Add your linting/formatting commands here
+# Lint
+npx eslint .
+
+# Type check (if using TypeScript)
+npx tsc --noEmit
 ```
 
 ---
