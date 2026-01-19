@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "Iris",
+    "slug": "iris",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a1a2e"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.iris.visionassistant",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Iris necesita la cámara para describir tu entorno",
+        "NSMicrophoneUsageDescription": "Iris escucha continuamente para activarse cuando dices 'iris'",
+        "NSSpeechRecognitionUsageDescription": "Iris necesita reconocimiento de voz para entender tus comandos",
+        "UIBackgroundModes": [
+          "audio",
+          "processing"
+        ]
+      }
+    },
+    "android": {
+      "package": "com.iris.visionassistant",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1a1a2e"
+      },
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MICROPHONE",
+        "WAKE_LOCK",
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Iris necesita la cámara para describir tu entorno",
+          "microphonePermission": "Iris necesita el micrófono para comandos de voz"
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Iris escucha continuamente para activarse cuando dices 'iris'",
+          "speechRecognitionPermission": "Iris necesita reconocimiento de voz para entender tus comandos"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "8dada19b-36d1-4559-bd57-95aa8f2621ab"
+      }
+    }
+  }
+}
