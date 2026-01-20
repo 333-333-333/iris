@@ -152,4 +152,4 @@ export class ExpoSpeechSynthesizer implements SpeechSynthesizer {
   }
 }
 
-export { InMemoryDescriptionRepository, ExpoSpeechSynthesizer };
+// Classes already exported above via 'export class'

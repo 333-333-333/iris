@@ -100,11 +100,13 @@ export class WakeWordParser {
     const commandText = this.extractCommandText(text);
 
     // Parse intent from command text
-    let intent = CommandIntent.fromText(commandText);
+    const intent = CommandIntent.fromText(commandText);
 
-    // Default to DESCRIBE if wake word detected but no specific command
+    // If no valid command after wake word, return null (keep listening)
+    // User needs to say "Iris describe", not just "Iris"
     if (intent.type === IntentType.UNKNOWN) {
-      intent = this.createDefaultIntent();
+      console.log('[WakeWordParser] Wake word detected but no valid command:', commandText);
+      return null;
     }
 
     return {
@@ -143,21 +145,4 @@ export class WakeWordParser {
     return afterWakeWord;
   }
 
-  /**
-   * Creates the default DESCRIBE intent for unrecognized commands
-   * 
-   * Used when wake word is detected but command text is empty or unrecognized.
-   * Assigns lower confidence than explicitly recognized commands.
-   * 
-   * @returns A DESCRIBE intent with default confidence level
-   * @internal
-   */
-  private createDefaultIntent(): CommandIntent {
-    // Create a DESCRIBE intent with lower confidence when no specific command detected
-    return CommandIntent.create(
-      IntentType.DESCRIBE,
-      DEFAULT_INTENT_CONFIDENCE,
-      'default'
-    );
-  }
 }

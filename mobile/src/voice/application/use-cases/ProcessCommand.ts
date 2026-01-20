@@ -123,24 +123,18 @@ export class ProcessCommandUseCase {
   /**
    * Handles the describe intent to analyze and describe the current scene
    * 
-   * Verifies vision service readiness, analyzes the scene, synthesizes speech response,
-   * and persists description for future replay.
+   * Analyzes the scene, synthesizes speech response, and persists description
+   * for future replay. The AnalyzeSceneUseCase will preload models if needed.
    * 
    * @returns Promise resolving to the result with description or error
    * @internal
    */
   private async handleDescribe(): Promise<ProcessCommandResult> {
-    // Check if vision service is ready
-    if (!this.visionService.isReady()) {
-      await this.speechSynthesizer.speak(ERROR_MESSAGES.visionNotReady);
-      return {
-        success: false,
-        error: 'Vision service not ready',
-      };
-    }
-
     try {
-      // Analyze scene
+      // Give feedback that we're processing
+      console.log('[ProcessCommandUseCase] Analyzing scene...');
+
+      // Analyze scene - AnalyzeSceneUseCase handles preloading if needed
       const analysis = await this.visionService.analyzeScene();
       const { description } = analysis;
 
@@ -156,6 +150,7 @@ export class ProcessCommandUseCase {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : ERROR_MESSAGES.genericError;
+      console.error('[ProcessCommandUseCase] Describe failed:', errorMessage);
       await this.speechSynthesizer.speak(`Hubo un error: ${errorMessage}`);
       return {
         success: false,

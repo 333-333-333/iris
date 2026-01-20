@@ -1,14 +1,14 @@
 import React from 'react';
-import { TouchableOpacity, Text, View, StyleSheet, ActivityIndicator, TouchableOpacityProps } from 'react-native';
-
-// Type to avoid type error with typeof
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      button: any;
-    }
-  }
-}
+import { 
+  TouchableOpacity, 
+  Text, 
+  StyleSheet, 
+  ActivityIndicator, 
+  TouchableOpacityProps,
+  ViewStyle,
+  TextStyle,
+} from 'react-native';
+import { colors } from '../../../theme';
 
 /**
  * Visual style variant for button appearance
@@ -48,24 +48,27 @@ export interface ButtonProps extends Omit<TouchableOpacityProps, 'children'> {
   accessibilityHint?: string;
 }
 
-const variantStyles: Record<ButtonVariant, StyleSheet.NamedStyles<any>> = {
+/**
+ * Variant styles using Catppuccin Mocha palette
+ */
+const variantStyles: Record<ButtonVariant, ViewStyle> = {
   primary: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: colors.interactive.primary,
   },
   secondary: {
-    backgroundColor: '#6B7280',
+    backgroundColor: colors.interactive.secondary,
   },
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#3B82F6',
+    borderColor: colors.interactive.primary,
   },
   danger: {
-    backgroundColor: '#DC2626',
+    backgroundColor: colors.interactive.danger,
   },
 };
 
-const sizeStyles: Record<ButtonSize, StyleSheet.NamedStyles<any>> = {
+const sizeStyles: Record<ButtonSize, ViewStyle> = {
   small: {
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -85,25 +88,37 @@ const sizeStyles: Record<ButtonSize, StyleSheet.NamedStyles<any>> = {
 
 const textVariantStyles: Record<ButtonVariant, TextStyle> = {
   primary: {
-    color: '#FFFFFF',
+    color: colors.background.primary,
     fontWeight: '600',
   },
   secondary: {
-    color: '#FFFFFF',
+    color: colors.text.primary,
     fontWeight: '600',
   },
   outline: {
-    color: '#3B82F6',
+    color: colors.interactive.primary,
     fontWeight: '600',
   },
   danger: {
-    color: '#FFFFFF',
+    color: colors.background.primary,
     fontWeight: '600',
   },
 };
 
+const textSizeStyles: Record<ButtonSize, TextStyle> = {
+  small: {
+    fontSize: 14,
+  },
+  medium: {
+    fontSize: 16,
+  },
+  large: {
+    fontSize: 18,
+  },
+};
+
 /**
- * Reusable button component with multiple style variants and sizes
+ * Reusable button component with Catppuccin Mocha styling
  * 
  * Provides accessible, customizable buttons with built-in support for loading and disabled states.
  * Includes full accessibility support for screen readers and proper visual feedback.
@@ -123,13 +138,6 @@ const textVariantStyles: Record<ButtonVariant, TextStyle> = {
  *   loading={isDeleting}
  *   onPress={handleDelete}
  * />
- * 
- * // Outline button, disabled
- * <Button
- *   label="Cancel"
- *   variant="outline"
- *   disabled={true}
- * />
  * ```
  * 
  * @public
@@ -144,6 +152,10 @@ export function Button({
   style,
   ...props
 }: ButtonProps) {
+  const spinnerColor = variant === 'outline' 
+    ? colors.interactive.primary 
+    : colors.background.primary;
+
   return (
     <TouchableOpacity
       style={[
@@ -164,7 +176,7 @@ export function Button({
       {loading ? (
         <ActivityIndicator 
           testID="button-loading"
-          color={variant === 'outline' ? '#3B82F6' : '#FFFFFF'}
+          color={spinnerColor}
           size="small"
         />
       ) : (
@@ -172,7 +184,7 @@ export function Button({
           style={[
             styles.text,
             textVariantStyles[variant],
-            sizeStyles[size],
+            textSizeStyles[size],
             disabled && styles.textDisabled,
           ]}
         >
@@ -185,7 +197,7 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },

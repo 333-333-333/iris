@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, View, StyleSheet, ViewStyle } from 'react-native';
+import { colors } from '../../../theme';
 
 export type PulsingCircleSize = number | 'small' | 'medium' | 'large';
-export type PulsingCircleStatus = 'idle' | 'listening' | 'processing' | 'error';
+export type PulsingCircleStatus = 'idle' | 'listening' | 'processing' | 'speaking' | 'error';
 
 export interface PulsingCircleProps {
   active?: boolean;
@@ -14,16 +15,20 @@ export interface PulsingCircleProps {
 }
 
 const sizePresets = {
-  small: 40,
-  medium: 60,
-  large: 80,
+  small: 60,
+  medium: 100,
+  large: 140,
 };
 
+/**
+ * Status colors using Catppuccin Mocha palette
+ */
 const statusColors: Record<PulsingCircleStatus, string> = {
-  idle: '#9CA3AF',
-  listening: '#10B981',
-  processing: '#F59E0B',
-  error: '#EF4444',
+  idle: colors.status.idle,
+  listening: colors.status.listening,
+  processing: colors.status.processing,
+  speaking: colors.status.speaking,
+  error: colors.status.error,
 };
 
 const getSize = (size: PulsingCircleSize): number => {
@@ -31,6 +36,17 @@ const getSize = (size: PulsingCircleSize): number => {
   return sizePresets[size];
 };
 
+/**
+ * Animated pulsing circle indicator
+ * 
+ * Visual feedback component that pulses when active.
+ * Uses Catppuccin Mocha colors for different states.
+ * 
+ * @param props - Component props
+ * @returns Animated circle component
+ * 
+ * @public
+ */
 export function PulsingCircle({
   active = false,
   size = 'medium',
@@ -41,33 +57,44 @@ export function PulsingCircle({
 }: PulsingCircleProps) {
   const circleSize = getSize(size);
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const opacityAnim = useRef(new Animated.Value(0.3)).current;
+  const opacityAnim = useRef(new Animated.Value(0.4)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (active) {
-      // Start pulsing animation
+      // Pulse animation with glow effect
       const pulseSequence = Animated.sequence([
         Animated.parallel([
           Animated.timing(pulseAnim, {
-            toValue: 1.2,
-            duration: 1000,
+            toValue: 1.15,
+            duration: 1200,
             useNativeDriver: true,
           }),
           Animated.timing(opacityAnim, {
-            toValue: 0.1,
-            duration: 1000,
+            toValue: 0.15,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowAnim, {
+            toValue: 1,
+            duration: 1200,
             useNativeDriver: true,
           }),
         ]),
         Animated.parallel([
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 1000,
+            duration: 1200,
             useNativeDriver: true,
           }),
           Animated.timing(opacityAnim, {
-            toValue: 0.3,
-            duration: 1000,
+            toValue: 0.4,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowAnim, {
+            toValue: 0,
+            duration: 1200,
             useNativeDriver: true,
           }),
         ]),
@@ -78,59 +105,97 @@ export function PulsingCircle({
 
       return () => {
         loop.stop();
-        // Reset animations
         pulseAnim.setValue(1);
-        opacityAnim.setValue(0.3);
+        opacityAnim.setValue(0.4);
+        glowAnim.setValue(0);
       };
     } else {
       // Reset to static state
       pulseAnim.setValue(1);
-      opacityAnim.setValue(0.3);
+      opacityAnim.setValue(0.4);
+      glowAnim.setValue(0);
     }
-  }, [active, pulseAnim, opacityAnim]);
+  }, [active, pulseAnim, opacityAnim, glowAnim]);
 
   const circleColor = color || statusColors[status];
+
+  // Calculate glow size
+  const glowSize = circleSize * 1.5;
 
   return (
     <View
       testID="pulsing-circle"
       style={[
-        styles.container,
-        {
-          width: circleSize,
-          height: circleSize,
-          borderRadius: circleSize / 2,
-          backgroundColor: circleColor,
-        },
+        styles.wrapper,
+        { width: glowSize, height: glowSize },
         style,
       ]}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="image"
     >
+      {/* Outer glow */}
       <Animated.View
         style={[
-          styles.pulse,
+          styles.glow,
           {
-            width: circleSize,
-            height: circleSize,
-            borderRadius: circleSize / 2,
+            width: glowSize,
+            height: glowSize,
+            borderRadius: glowSize / 2,
             backgroundColor: circleColor,
             transform: [{ scale: pulseAnim }],
             opacity: opacityAnim,
           },
         ]}
       />
+      
+      {/* Inner circle */}
+      <View
+        style={[
+          styles.circle,
+          {
+            width: circleSize,
+            height: circleSize,
+            borderRadius: circleSize / 2,
+            backgroundColor: circleColor,
+          },
+        ]}
+      >
+        {/* Inner highlight */}
+        <View
+          style={[
+            styles.highlight,
+            {
+              width: circleSize * 0.6,
+              height: circleSize * 0.6,
+              borderRadius: (circleSize * 0.6) / 2,
+            },
+          ]}
+        />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    position: 'relative',
+  wrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  pulse: {
+  glow: {
     position: 'absolute',
-    top: 0,
-    left: 0,
+  },
+  circle: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Subtle shadow for depth
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  highlight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginTop: -10,
   },
 });
