@@ -79,16 +79,19 @@ export function useVisionService(
 ): UseVisionServiceReturn {
   const { preload = true } = options;
 
-  // Retrieve Azure Computer Vision configuration
-  let azureConfig: { apiKey: string; endpoint: string } | undefined;
-  try {
-    azureConfig = getAzureConfig();
-    console.log('[useVisionService] ✓ Azure Computer Vision config found');
-  } catch (error: any) {
-    console.warn('[useVisionService] ⚠️', error.message);
-  }
+  // Retrieve Azure Computer Vision configuration (memoized - configs don't change)
+  const azureConfig = React.useMemo(() => {
+    try {
+      const config = getAzureConfig();
+      console.log('[useVisionService] ✓ Azure Computer Vision config found');
+      return config;
+    } catch (error: any) {
+      console.warn('[useVisionService] ⚠️', error.message);
+      return undefined;
+    }
+  }, []);
 
-  // Retrieve Azure Translator configuration (optional)
+  // Retrieve Azure Translator configuration (memoized)
   const translatorConfig = React.useMemo(() => {
     const config = getAzureTranslatorConfig();
     if (config) {
@@ -105,16 +108,21 @@ export function useVisionService(
     return new NullTranslationAdapter();
   }, [translatorConfig]);
 
-  // Create memoized adapters to prevent recreation on every render
-  const cameraAdapter = React.useMemo(() => new ExpoCameraAdapter(), []);
-  const visionAdapter = React.useMemo(
-    () => new HybridVisionAdapter(azureConfig, translationService),
-    [azureConfig, translationService]
-  );
-  const visionServiceBridge = React.useMemo(
-    () => new VisionServiceBridge(cameraAdapter, visionAdapter),
-    [cameraAdapter, visionAdapter]
-  );
+  // Create memoized adapters - these should NEVER be recreated
+  const cameraAdapter = React.useMemo(() => {
+    console.log('[useVisionService] Creating ExpoCameraAdapter (should only happen once)');
+    return new ExpoCameraAdapter();
+  }, []);
+  
+  const visionAdapter = React.useMemo(() => {
+    console.log('[useVisionService] Creating HybridVisionAdapter (should only happen once)');
+    return new HybridVisionAdapter(azureConfig, translationService);
+  }, [azureConfig, translationService]);
+  
+  const visionServiceBridge = React.useMemo(() => {
+    console.log('[useVisionService] Creating VisionServiceBridge (should only happen once)');
+    return new VisionServiceBridge(cameraAdapter, visionAdapter);
+  }, [cameraAdapter, visionAdapter]);
 
   // Track model loading state
   const [isReady, setIsReady] = React.useState(false);

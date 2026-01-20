@@ -76,18 +76,21 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
 
   // Connect camera ref to adapter when ready
   useEffect(() => {
-    if (cameraRef.current && cameraAdapter && isCameraReady) {
-      console.log('[CameraCapture] Connecting camera ref to adapter...');
+    // Only connect when camera is actually ready AND we have a valid ref
+    if (isCameraReady && cameraRef.current && cameraAdapter) {
+      console.log('[CameraCapture] ✓ Connecting camera ref to adapter');
       cameraAdapter.setCameraRef(cameraRef.current);
       onReady?.();
     }
-
-    return () => {
-      if (cameraAdapter) {
-        cameraAdapter.setCameraRef(null);
-      }
-    };
   }, [cameraAdapter, onReady, isCameraReady]);
+
+  // Cleanup on unmount only
+  useEffect(() => {
+    return () => {
+      console.log('[CameraCapture] Cleanup - clearing camera ref');
+      cameraAdapter?.setCameraRef(null);
+    };
+  }, [cameraAdapter]);
 
   // Handle camera ready event
   const handleCameraReady = () => {
@@ -117,15 +120,17 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    // Move completely off-screen (Android ignores opacity: 0)
-    top: -9999,
-    left: -9999,
-    width: 1,
-    height: 1,
+    // Position at bottom-right corner, mostly off-screen
+    // iOS requires the camera view to be "visible" to initialize
+    bottom: -150,
+    right: -150,
+    width: 200,
+    height: 200,
+    // Don't use opacity:0 - iOS may not initialize camera
   },
   camera: {
-    // Camera needs minimum size to initialize properly
-    width: 100,
-    height: 100,
+    // Camera needs reasonable size to initialize on iOS
+    width: 200,
+    height: 200,
   },
 });
