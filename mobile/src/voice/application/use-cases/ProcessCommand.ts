@@ -38,6 +38,7 @@ const HELP_MESSAGE = `
 Puedes decir: 
 describe, para ver lo que hay frente a ti.
 repite, para escuchar la última descripción.
+hazme cualquier pregunta sobre la imagen después de describir.
 ayuda, para escuchar estos comandos.
 adiós, para cerrar.
 `.trim();
@@ -45,6 +46,8 @@ adiós, para cerrar.
 const ERROR_MESSAGES = {
   visionNotReady: 'La cámara no está lista. Por favor, intenta de nuevo.',
   noDescription: 'No hay descripción anterior para repetir.',
+  noContext: 'No hay una imagen reciente. Di describe primero para capturar una imagen.',
+  questionNotSupported: 'El servicio de visión actual no soporta responder preguntas.',
   unknownCommand: 'No entendí el comando. Di ayuda para ver los comandos disponibles.',
   genericError: 'Ocurrió un error. Por favor, intenta de nuevo.',
 };
@@ -96,7 +99,7 @@ export class ProcessCommandUseCase {
    * ```
    */
   async execute(parsedCommand: ParsedCommand): Promise<ProcessCommandResult> {
-    const { intent } = parsedCommand;
+    const { intent, commandText } = parsedCommand;
 
     switch (intent.type) {
       case IntentType.DESCRIBE:
@@ -104,6 +107,9 @@ export class ProcessCommandUseCase {
 
       case IntentType.REPEAT:
         return this.handleRepeat();
+
+      case IntentType.QUESTION:
+        return this.handleQuestion(commandText);
 
       case IntentType.HELP:
         return this.handleHelp();
@@ -185,6 +191,56 @@ export class ProcessCommandUseCase {
       success: true,
       description: lastDescription,
     };
+  }
+
+  /**
+   * Handles the question intent to answer questions about the last scene
+   * 
+   * Uses the vision service's Q&A capability to answer specific questions
+   * about the last captured image (color, size, brand, price, etc.).
+   * 
+   * @param question - The user's question text
+   * @returns Promise resolving to the result with answer or error
+   * @internal
+   */
+  private async handleQuestion(question: string): Promise<ProcessCommandResult> {
+    try {
+      console.log('[ProcessCommandUseCase] Answering question:', question);
+
+      // Check if vision service supports Q&A
+      if (!this.visionService.answerQuestion) {
+        console.log('[ProcessCommandUseCase] Vision service does not support Q&A');
+        await this.speechSynthesizer.speak(ERROR_MESSAGES.questionNotSupported);
+        return {
+          success: false,
+          error: ERROR_MESSAGES.questionNotSupported,
+        };
+      }
+
+      // Answer the question using the vision service
+      const result = await this.visionService.answerQuestion(question);
+      const { answer } = result;
+
+      console.log('[ProcessCommandUseCase] Answer:', answer);
+
+      // Speak the answer
+      await this.speechSynthesizer.speak(answer);
+
+      return {
+        success: true,
+        description: answer,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : ERROR_MESSAGES.genericError;
+      console.error('[ProcessCommandUseCase] Question failed:', errorMessage);
+      
+      await this.speechSynthesizer.speak(errorMessage);
+      
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
   }
 
   /**
