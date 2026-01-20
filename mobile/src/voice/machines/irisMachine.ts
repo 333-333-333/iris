@@ -302,6 +302,32 @@ const analyzeSceneActor = fromPromise<
 });
 
 /**
+ * Actor: Answer question about the scene
+ */
+const answerQuestionActor = fromPromise<
+  { answer: string },
+  { visionService: VisionService; question: string }
+>(async ({ input }) => {
+  console.log('[irisMachine] Answering question:', input.question);
+  
+  const { visionService, question } = input;
+  
+  // Check if vision service supports Q&A
+  if (!visionService.answerQuestion) {
+    throw new Error('El servicio de vision actual no soporta responder preguntas.');
+  }
+  
+  // Answer the question
+  const result = await visionService.answerQuestion(question);
+  
+  console.log('[irisMachine] Answer:', result.answer);
+  
+  return {
+    answer: result.answer,
+  };
+});
+
+/**
  * Actor: Speak text using TTS
  */
 const speakActor = fromPromise<void, { text: string }>(async ({ input }) => {
@@ -344,6 +370,7 @@ export const irisMachine = setup({
     initialize: initializeActor,
     wakeWordListener: wakeWordListenerActor,
     analyzeScene: analyzeSceneActor,
+    answerQuestion: answerQuestionActor,
     speak: speakActor,
   },
   
@@ -396,6 +423,14 @@ export const irisMachine = setup({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     },
     
+    speakFeedback: (_, params: { message: string }) => {
+      Speech.speak(params.message, {
+        language: 'es-ES',
+        pitch: 1.0,
+        rate: 1.2, // Slightly faster for feedback
+      });
+    },
+    
     logState: ({ context }, params: { state: string }) => {
       console.log(`[irisMachine] State: ${params.state}`, {
         visionReady: context.visionReady,
@@ -417,6 +452,9 @@ export const irisMachine = setup({
     
     isRepeatCommand: ({ context }) =>
       context.parsedCommand?.intent.type === IntentType.REPEAT,
+    
+    isQuestionCommand: ({ context }) =>
+      context.parsedCommand?.intent.type === IntentType.QUESTION,
     
     hasLastDescription: ({ context }) =>
       context.lastDescription !== null,
@@ -559,6 +597,10 @@ export const irisMachine = setup({
           guard: 'isRepeatCommand',
           target: 'repeating',
         },
+        {
+          guard: 'isQuestionCommand',
+          target: 'answeringQuestion',
+        },
         // Default: unknown command
         {
           target: 'speakingError',
@@ -573,7 +615,10 @@ export const irisMachine = setup({
     // ANALYZING: Capture photo and run vision analysis
     // =========================================================================
     analyzing: {
-      entry: { type: 'logState', params: { state: 'analyzing' } },
+      entry: [
+        { type: 'logState', params: { state: 'analyzing' } },
+        { type: 'speakFeedback', params: { message: 'Un momento' } },
+      ],
       
       invoke: {
         src: 'analyzeScene',
@@ -637,7 +682,7 @@ export const irisMachine = setup({
       invoke: {
         src: 'speak',
         input: {
-          text: 'Puedes decir: Iris describe, para ver lo que hay frente a ti. Iris repite, para escuchar la ultima descripcion. Iris ayuda, para escuchar estos comandos.',
+          text: 'Puedes decir: Iris describe, para ver lo que hay frente a ti. Iris repite, para escuchar la ultima descripcion. Hazme cualquier pregunta sobre la imagen despues de describir. Iris ayuda, para escuchar estos comandos. Iris adios, para cerrar.',
         },
         onDone: {
           target: 'listening',
@@ -666,6 +711,40 @@ export const irisMachine = setup({
           }),
         },
       ],
+    },
+
+    // =========================================================================
+    // ANSWERING QUESTION: Answer question about the scene
+    // =========================================================================
+    answeringQuestion: {
+      entry: [
+        { type: 'logState', params: { state: 'answeringQuestion' } },
+        { type: 'speakFeedback', params: { message: 'Déjame ver' } },
+      ],
+      
+      invoke: {
+        src: 'answerQuestion',
+        input: ({ context }) => ({
+          visionService: context.visionService!,
+          question: context.parsedCommand?.commandText || '',
+        }),
+        onDone: {
+          target: 'speaking',
+          actions: assign({
+            lastDescription: ({ event }) => {
+              const output = event.output as { answer: string };
+              console.log('[irisMachine] Setting answer:', output.answer);
+              return output.answer;
+            },
+          }),
+        },
+        onError: {
+          target: 'speakingError',
+          actions: assign({
+            error: ({ event }) => (event.error as Error).message,
+          }),
+        },
+      },
     },
 
     // =========================================================================
