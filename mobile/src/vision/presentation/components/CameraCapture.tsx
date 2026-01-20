@@ -14,8 +14,9 @@
  */
 
 import React, { useRef, useEffect, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Device from 'expo-device';
 import { ExpoCameraAdapter } from '../../infrastructure/adapters/expo/ExpoCameraAdapter';
 
 /**
@@ -66,6 +67,20 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [isCameraReady, setIsCameraReady] = useState(false);
+  const isSimulator = !Device.isDevice;
+
+  // Log device info on mount
+  useEffect(() => {
+    console.log('[CameraCapture] Device info:', {
+      isDevice: Device.isDevice,
+      isSimulator,
+      platform: Platform.OS,
+    });
+    
+    if (isSimulator) {
+      console.warn('[CameraCapture] ⚠️ Running on simulator - camera may not work!');
+    }
+  }, [isSimulator]);
 
   // Request permission on mount
   useEffect(() => {
@@ -74,7 +89,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     }
   }, [permission, requestPermission]);
 
-  // Connect camera ref to adapter when ready
+  // Connect camera ref to adapter when ready OR after timeout on simulator
   useEffect(() => {
     // Only connect when camera is actually ready AND we have a valid ref
     if (isCameraReady && cameraRef.current && cameraAdapter) {
@@ -83,6 +98,22 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
       onReady?.();
     }
   }, [cameraAdapter, onReady, isCameraReady]);
+
+  // Fallback: try to connect ref after delay (for simulator or slow devices)
+  useEffect(() => {
+    if (permission?.granted && !isCameraReady) {
+      const fallbackTimer = setTimeout(() => {
+        if (cameraRef.current && cameraAdapter && !cameraAdapter.hasRef()) {
+          console.log('[CameraCapture] ⚠️ Fallback: connecting ref without onCameraReady');
+          cameraAdapter.setCameraRef(cameraRef.current);
+          setIsCameraReady(true);
+          onReady?.();
+        }
+      }, 2000); // Wait 2 seconds before fallback
+
+      return () => clearTimeout(fallbackTimer);
+    }
+  }, [permission?.granted, isCameraReady, cameraAdapter, onReady]);
 
   // Cleanup on unmount only
   useEffect(() => {
@@ -94,7 +125,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
 
   // Handle camera ready event
   const handleCameraReady = () => {
-    console.log('[CameraCapture] Camera hardware ready');
+    console.log('[CameraCapture] ✓ Camera hardware ready');
     setIsCameraReady(true);
   };
 
