@@ -1,123 +1,123 @@
-# Migración: Gemini → Azure Computer Vision
+# Migration: Gemini to Azure Computer Vision
 
-## 📋 Resumen
+## Summary
 
-Cambiamos de **Google Gemini Vision** a **Azure Computer Vision** para aprovechar un free tier más generoso y mejores capacidades de detección.
+Changed from Google Gemini Vision to Azure Computer Vision to take advantage of a more generous free tier and better detection capabilities.
 
-## 🎯 Razones del Cambio
+## Reasons for the change
 
-| Aspecto | Gemini | Azure Computer Vision |
-|---------|--------|----------------------|
-| **Free Tier** | 1,500 requests/día (15/min) | **5,000 requests/mes** |
-| **Velocidad** | ~2-3s | ~1-2s |
-| **Detección** | Solo texto descriptivo | **Objetos + coordenadas + descripción** |
-| **API** | Chat-based (pesado) | REST especializado (ligero) |
-| **Datos estructurados** | ❌ No | ✅ Sí (JSON con objetos) |
+| Aspect | Gemini | Azure Computer Vision |
+|--------|--------|----------------------|
+| Free Tier | 1,500 requests/day (15/min) | 5,000 requests/month |
+| Speed | ~2-3s | ~1-2s |
+| Detection | Only descriptive text | Objects + coordinates + description |
+| API | Chat-based (heavy) | Specialized REST (lightweight) |
+| Structured data | No | Yes (JSON with objects) |
 
-## 🔄 Cambios Realizados
+## Changes made
 
-### 1. Dependencias
+### Dependencies
 
-**Removido:**
+Removed:
 ```json
 "@google/generative-ai": "^0.24.1"
 ```
 
-**Agregado:**
+Added:
 ```json
 "axios": "^1.13.2"
 ```
 
-### 2. Configuración
+### Configuration
 
-**Antes (Gemini):**
+Before (Gemini):
 ```bash
 # .env
 EXPO_PUBLIC_GEMINI_API_KEY=AIza...
 ```
 
-**Ahora (Azure):**
+Now (Azure):
 ```bash
 # .env
 EXPO_PUBLIC_AZURE_CV_API_KEY=your-azure-api-key-here
 EXPO_PUBLIC_AZURE_CV_ENDPOINT=https://iris-assistant-cv.cognitiveservices.azure.com/
 ```
 
-### 3. Archivos Nuevos
+### New files
 
 ```
 src/
 ├── config/
-│   └── azure.ts                    # ✨ NUEVO: Configuración de Azure CV
+│   └── azure.ts                    # NEW: Azure CV configuration
 │
 └── vision/infrastructure/adapters/
     └── azure/
-        └── AzureVisionAdapter.ts   # ✨ NUEVO: Adapter para Azure CV
+        └── AzureVisionAdapter.ts   # NEW: Azure CV adapter
 ```
 
-### 4. Archivos Modificados
+### Modified files
 
 ```
-✏️  src/config/gemini.ts                              → Reemplazado por azure.ts
-✏️  src/vision/infrastructure/adapters/hybrid/HybridVisionAdapter.ts
-    - Cambiado: geminiAdapter → azureAdapter
-    - Actualizado: constructor ahora recibe { apiKey, endpoint }
+src/config/gemini.ts                              → Replaced by azure.ts
+src/vision/infrastructure/adapters/hybrid/HybridVisionAdapter.ts
+    - Changed: geminiAdapter → azureAdapter
+    - Updated: constructor now receives { apiKey, endpoint }
     
-✏️  src/vision/presentation/hooks/useVisionService.ts
-    - Cambiado: getGeminiApiKey() → getAzureConfig()
-    - Actualizado: pasa config completo al HybridVisionAdapter
+src/vision/presentation/hooks/useVisionService.ts
+    - Changed: getGeminiApiKey() → getAzureConfig()
+    - Updated: passes complete config to HybridVisionAdapter
 
-✏️  package.json                                      → Removido Gemini, agregado axios
-✏️  README.md                                         → Actualizada documentación
-✏️  docs/VISION_SERVICE.md                            → Agregada estrategia híbrida
-✏️  .env                                              → Nuevas credenciales de Azure
-✏️  .env.example                                      → Plantilla actualizada
+package.json                                      → Removed Gemini, added axios
+README.md                                         → Updated documentation
+docs/VISION_SERVICE.md                            → Added hybrid strategy
+.env                                              → New Azure credentials
+.env.example                                      → Updated template
 ```
 
-### 5. Archivos No Tocados (pueden removerse después)
+### Unused files (can be removed later)
 
 ```
-❌ src/config/gemini.ts                               # Ya no se usa
-❌ src/vision/infrastructure/adapters/gemini/GeminiVisionAdapter.ts  # Ya no se usa
+src/config/gemini.ts                               # No longer used
+src/vision/infrastructure/adapters/gemini/GeminiVisionAdapter.ts  # No longer used
 ```
 
-## 🏗️ Arquitectura Actualizada
+## Updated architecture
 
-### HybridVisionAdapter (Estrategia)
+### HybridVisionAdapter (Strategy)
 
 ```typescript
-// Antes
+// Before
 constructor(geminiApiKey?: string)
 
-// Ahora
+// Now
 constructor(azureConfig?: { apiKey: string; endpoint: string })
 ```
 
-### Flujo de Análisis
+### Analysis flow
 
 ```
-1. TFLite detecta objetos localmente (200-500ms)
+1. TFLite detects objects locally (200-500ms)
    → objects: DetectedObject[]
-   → naturalDescription: "template básico"
+   → naturalDescription: "basic template"
 
-2. Si hay internet:
-   a. Azure analiza contexto (1-2s)
+2. If there is internet:
+   a. Azure analyzes context (1-2s)
       → POST /computervision/imageanalysis:analyze
       → Features: caption, denseCaptions, objects, tags
    
-   b. Combina resultados:
-      → objects: de TFLite (con coordenadas normalizadas)
-      → naturalDescription: de Azure (contextual y rico)
+   b. Combines results:
+      → objects: from TFLite (with normalized coordinates)
+      → naturalDescription: from Azure (contextual and rich)
 
-3. Si NO hay internet:
-   → Usa solo resultado de TFLite
+3. If there is NO internet:
+   → Uses only TFLite result
 ```
 
-## 📊 Comparación de Resultados
+## Results comparison
 
-### Ejemplo: Foto de Oficina
+### Example: Office photo
 
-**TFLite (local):**
+TFLite (local):
 ```json
 {
   "objects": [
@@ -125,11 +125,11 @@ constructor(azureConfig?: { apiKey: string; endpoint: string })
     { "label": "laptop", "confidence": 0.88 },
     { "label": "chair", "confidence": 0.76 }
   ],
-  "naturalDescription": "Veo una persona, un portátil y una silla"
+  "naturalDescription": "I see a person, a laptop and a chair"
 }
 ```
 
-**Azure (enriquecido):**
+Azure (enriched):
 ```json
 {
   "objects": [
@@ -138,40 +138,40 @@ constructor(azureConfig?: { apiKey: string; endpoint: string })
     { "object": "chair", "confidence": 0.82, "rectangle": {...} }
   ],
   "captionResult": {
-    "text": "Una persona trabajando en una oficina moderna con un portátil sobre el escritorio",
+    "text": "A person working in a modern office with a laptop on the desk",
     "confidence": 0.89
   }
 }
 ```
 
-**Resultado Híbrido Final:**
+Final hybrid result:
 ```json
 {
   "objects": [
-    // De TFLite, pero con etiquetas de Azure si están disponibles
+    // From TFLite, but with Azure labels if available
     { "label": "person", "labelEs": "persona", "confidence": 0.92, ... },
     { "label": "laptop", "labelEs": "portátil", "confidence": 0.88, ... },
     { "label": "chair", "labelEs": "silla", "confidence": 0.76, ... }
   ],
-  "naturalDescription": "Una persona trabajando en una oficina moderna con un portátil sobre el escritorio",
+  "naturalDescription": "A person working in a modern office with a laptop on the desk",
   "confidence": 0.89
 }
 ```
 
-## 🔑 Ventajas de Azure Computer Vision
+## Advantages of Azure Computer Vision
 
-### 1. Datos Estructurados
-- **Objetos con coordenadas** en píxeles absolutos (normalizamos a 0-1)
-- **Múltiples captions** (general + dense por regiones)
-- **Tags descriptivos** con confianza
-- **Metadata** de imagen (width, height)
+### Structured data
+- Objects with coordinates in absolute pixels (we normalize to 0-1)
+- Multiple captions (general + dense per regions)
+- Descriptive tags with confidence
+- Image metadata (width, height)
 
-### 2. API Diseñada para Visión
+### API designed for vision
 ```typescript
-// Gemini (chat-based, genérico)
+// Gemini (chat-based, generic)
 await model.generateContent([prompt, { inlineData: { ... } }])
 
-// Azure (REST especializado)
+// Azure (specialized REST)
 await axios.post('/imageanalysis:analyze', imageBinary, {
   params: {
     features: 'caption,objects,tags',
@@ -180,52 +180,52 @@ await axios.post('/imageanalysis:analyze', imageBinary, {
 })
 ```
 
-### 3. Free Tier Generoso
-- **5,000 transacciones/mes** gratis
-- Sin límite por minuto
-- Suficiente para desarrollo y usuarios beta
+### Generous free tier
+- 5,000 transactions/month free
+- No limit per minute
+- Enough for development and beta users
 
-### 4. Latencia Predecible
-- Azure: ~1-2s consistente
+### Predictable latency
+- Azure: ~1-2s consistent
 - Gemini: ~2-4s variable
 
-## 🚀 Cómo Usar
+## How to use
 
-### Configuración Inicial
+### Initial configuration
 
-1. **Obtener credenciales** (ya hecho):
-   - Recurso: `iris-assistant-cv`
+1. Get credentials (already done):
+   - Resource: `iris-assistant-cv`
    - Region: East US
-   - API Key: ✅ Configurado en `.env`
-   - Endpoint: ✅ Configurado en `.env`
+   - API Key: Configured in `.env`
+   - Endpoint: Configured in `.env`
 
-2. **La app detecta automáticamente** si hay Azure configurado:
+2. The app automatically detects if Azure is configured:
    ```typescript
    try {
      azureConfig = getAzureConfig();
-     console.log('✓ Azure enabled');
+     console.log('Azure enabled');
    } catch {
-     console.log('⚠️ Azure disabled, using TFLite only');
+     console.log('Azure disabled, using TFLite only');
    }
    ```
 
 ### Testing
 
 ```bash
-# Instalar dependencias
+# Install dependencies
 bun install
 
-# La app usará Azure automáticamente si:
-# 1. Hay credenciales en .env
-# 2. Hay conexión a internet
+# The app will use Azure automatically if:
+# 1. There are credentials in .env
+# 2. There is internet connection
 
-# Sin internet → TFLite solamente
-# Con internet → TFLite + Azure (hybrid)
+# Without internet → TFLite only
+# With internet → TFLite + Azure (hybrid)
 ```
 
-## 📝 Siguiente Paso
+## Next step
 
-**Probar en dispositivo real:**
+Test on real device:
 
 ```bash
 # Android
@@ -235,23 +235,23 @@ npx expo run:android
 npx expo run:ios --device
 ```
 
-**Verificar logs:**
+Verify logs:
 ```bash
-# Buscar en logs:
+# Search in logs:
 [HybridVisionAdapter] Online - using Azure Computer Vision for rich description
 [AzureVisionAdapter] Description: "..."
 ```
 
-## 🎉 Resultado
+## Result
 
-✅ **Free tier más generoso** (5,000/mes vs 1,500/día)  
-✅ **Mejor calidad** de descripciones contextuales  
-✅ **Datos estructurados** (objetos con coordenadas)  
-✅ **API especializada** para visión (no chat genérico)  
-✅ **Funciona offline** con TFLite como fallback  
-✅ **Zero downtime** - migración transparente
+- More generous free tier (5,000/month vs 1,500/day)
+- Better quality of contextual descriptions
+- Structured data (objects with coordinates)
+- Specialized API for vision (not generic chat)
+- Works offline with TFLite as fallback
+- Zero downtime - transparent migration
 
-## 🔗 Referencias
+## References
 
 - [Azure Computer Vision Docs](https://learn.microsoft.com/en-us/azure/ai-services/computer-vision/)
 - [Image Analysis API](https://learn.microsoft.com/en-us/azure/ai-services/computer-vision/how-to/call-analyze-image-40)
