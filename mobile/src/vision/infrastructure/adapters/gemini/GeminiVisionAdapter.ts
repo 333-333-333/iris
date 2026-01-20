@@ -23,6 +23,8 @@ import {
   IVisionService,
   AnalyzeImageOptions,
   ModelInfo,
+  QuestionResult,
+  QuestionContext,
 } from '../../../application/ports/IVisionService';
 import { SceneDescription } from '../../../domain/entities/SceneDescription';
 import { DetectedObject } from '../../../domain/entities/DetectedObject';
@@ -168,6 +170,127 @@ export class GeminiVisionAdapter implements IVisionService {
 
       throw new Error(`Error al analizar imagen con Gemini: ${error.message}`);
     }
+  }
+
+  /**
+   * Responde una pregunta sobre una imagen usando contexto visual
+   * 
+   * Usa Gemini para entender la pregunta y generar una respuesta
+   * basada en la imagen y el contexto proporcionado.
+   * 
+   * @param imageUri - Path a la imagen a analizar
+   * @param question - Pregunta del usuario en lenguaje natural
+   * @param context - Contexto adicional (objetos detectados, descripción previa)
+   * @returns Promise con la respuesta generada
+   * 
+   * @example
+   * ```typescript
+   * const result = await adapter.answerQuestion(
+   *   imageUri,
+   *   "¿De qué color es la camisa?",
+   *   { sceneDescription: "Veo una camisa y unos jeans" }
+   * );
+   * console.log(result.answer); // "La camisa es roja"
+   * ```
+   */
+  async answerQuestion(
+    imageUri: string,
+    question: string,
+    context?: QuestionContext
+  ): Promise<QuestionResult> {
+    if (!this.isInitialized) {
+      await this.preloadModels();
+    }
+
+    try {
+      console.log('[GeminiVisionAdapter] Answering question:', question);
+
+      // Leer imagen como base64
+      const file = new ExpoFile(imageUri);
+      const base64 = await file.base64();
+
+      // Construir prompt con contexto
+      const prompt = this.buildQuestionPrompt(question, context);
+      console.log('[GeminiVisionAdapter] Prompt:', prompt);
+
+      // Llamar a Gemini con la imagen y la pregunta
+      const result = await this.model.generateContent([
+        prompt,
+        {
+          inlineData: {
+            mimeType: 'image/jpeg',
+            data: base64,
+          },
+        },
+      ]);
+
+      const response = await result.response;
+      const answer = response.text().trim();
+
+      console.log('[GeminiVisionAdapter] Answer generated:', answer);
+
+      return {
+        answer,
+        confidence: 0.9,
+        sourceModel: 'gemini',
+      };
+    } catch (error: any) {
+      console.error('[GeminiVisionAdapter] Question answering failed:', error);
+
+      // Manejar errores específicos
+      if (error?.message?.includes('quota')) {
+        throw new Error('Has alcanzado el límite de requests de Gemini. Intenta más tarde.');
+      }
+
+      if (error?.message?.includes('API key')) {
+        throw new Error('API key de Gemini inválida.');
+      }
+
+      throw new Error(`Error al responder pregunta con Gemini: ${error.message}`);
+    }
+  }
+
+  /**
+   * Construye el prompt para responder preguntas con contexto
+   * 
+   * @param question - Pregunta del usuario
+   * @param context - Contexto visual (objetos detectados, descripción previa)
+   * @returns Prompt optimizado para Gemini
+   * @internal
+   */
+  private buildQuestionPrompt(
+    question: string,
+    context?: QuestionContext
+  ): string {
+    let prompt = `Eres un asistente visual para personas con discapacidad visual.
+
+Usuario pregunta: "${question}"
+
+`;
+
+    // Agregar contexto si existe
+    if (context?.sceneDescription) {
+      prompt += `Contexto previo: Ya describí esta escena como: "${context.sceneDescription}"\n\n`;
+    }
+
+    if (context?.detectedObjects && context.detectedObjects.length > 0) {
+      const objects = context.detectedObjects
+        .map(obj => obj.labelEs || obj.label)
+        .join(', ');
+      prompt += `Objetos detectados: ${objects}\n\n`;
+    }
+
+    // Instrucciones específicas
+    prompt += `INSTRUCCIONES:
+- Responde en español de forma concisa (máximo 2 oraciones)
+- Si la pregunta es sobre color, talla, marca, precio, etc., lee el texto visible en etiquetas o la imagen
+- Si no puedes determinar algo con certeza, di "No puedo ver eso con claridad"
+- Sé directo y útil
+- NO repitas la pregunta en tu respuesta
+
+Respuesta:`;
+
+    return prompt;
   }
 
   /**

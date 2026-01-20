@@ -1,11 +1,14 @@
 import React from 'react';
 import { ExpoCameraAdapter } from '../../infrastructure/adapters/expo/ExpoCameraAdapter';
 import { HybridVisionAdapter } from '../../infrastructure/adapters/hybrid/HybridVisionAdapter';
+import { GroqVisionAdapter } from '../../infrastructure/adapters/groq/GroqVisionAdapter';
 import { VisionServiceBridge } from '../../infrastructure/adapters/voice/VisionServiceBridge';
 import { VisionService } from '../../../voice/application/ports/VisionService';
 import { getAzureConfig, getAzureTranslatorConfig } from '../../../config/azure';
+import { getGroqConfig } from '../../../config/groq';
 import { AzureTranslatorAdapter } from '../../infrastructure/adapters/azure/AzureTranslatorAdapter';
 import { NullTranslationAdapter } from '../../infrastructure/adapters/NullTranslationAdapter';
+import { InMemoryContextRepository } from '../../infrastructure/adapters/storage/InMemoryContextRepository';
 
 /**
  * Configuration options for the useVisionService hook
@@ -41,8 +44,8 @@ interface UseVisionServiceReturn {
   /** Camera adapter for direct hardware camera control if needed */
   cameraAdapter: ExpoCameraAdapter;
 
-  /** Hybrid vision adapter combining TFLite and cloud services */
-  visionAdapter: HybridVisionAdapter;
+  /** Vision adapter (Groq or Hybrid depending on config) */
+  visionAdapter: GroqVisionAdapter | HybridVisionAdapter;
 }
 
 /**
@@ -79,6 +82,18 @@ export function useVisionService(
 ): UseVisionServiceReturn {
   const { preload = true } = options;
 
+  // Retrieve Groq configuration (preferred for Q&A)
+  const groqConfig = React.useMemo(() => {
+    try {
+      const config = getGroqConfig();
+      console.log('[useVisionService] ✓ Groq config found (will be used for Q&A)');
+      return config;
+    } catch (error: any) {
+      console.warn('[useVisionService] ⚠️ Groq not configured:', error.message);
+      return undefined;
+    }
+  }, []);
+
   // Retrieve Azure Computer Vision configuration (memoized - configs don't change)
   const azureConfig = React.useMemo(() => {
     try {
@@ -114,15 +129,35 @@ export function useVisionService(
     return new ExpoCameraAdapter();
   }, []);
   
+  // Si hay Groq configurado, usarlo para Q&A. Sino, usar HybridVisionAdapter
   const visionAdapter = React.useMemo(() => {
+    if (groqConfig) {
+      console.log('[useVisionService] Creating GroqVisionAdapter for Q&A (should only happen once)');
+      return new GroqVisionAdapter({
+        apiKey: groqConfig.apiKey,
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        temperature: groqConfig.temperature,
+        maxTokens: groqConfig.maxTokens,
+      });
+    }
+    
     console.log('[useVisionService] Creating HybridVisionAdapter (should only happen once)');
     return new HybridVisionAdapter(azureConfig, translationService);
-  }, [azureConfig, translationService]);
+  }, [groqConfig, azureConfig, translationService]);
+  
+  // Context repository para Q&A (solo si hay Groq)
+  const contextRepository = React.useMemo(() => {
+    if (groqConfig) {
+      console.log('[useVisionService] Creating InMemoryContextRepository for Q&A');
+      return new InMemoryContextRepository();
+    }
+    return undefined;
+  }, [groqConfig]);
   
   const visionServiceBridge = React.useMemo(() => {
     console.log('[useVisionService] Creating VisionServiceBridge (should only happen once)');
-    return new VisionServiceBridge(cameraAdapter, visionAdapter);
-  }, [cameraAdapter, visionAdapter]);
+    return new VisionServiceBridge(cameraAdapter, visionAdapter, contextRepository);
+  }, [cameraAdapter, visionAdapter, contextRepository]);
 
   // Track model loading state
   const [isReady, setIsReady] = React.useState(false);

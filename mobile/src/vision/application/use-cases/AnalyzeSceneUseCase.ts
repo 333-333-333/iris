@@ -13,6 +13,7 @@
 import { ICameraService } from '../ports/ICameraService';
 import { IVisionService, AnalyzeImageOptions } from '../ports/IVisionService';
 import { SceneDescription } from '../../domain/entities/SceneDescription';
+import { IContextRepository } from '../ports/IContextRepository';
 
 export interface AnalyzeSceneResult {
   success: boolean;
@@ -23,7 +24,8 @@ export interface AnalyzeSceneResult {
 export class AnalyzeSceneUseCase {
   constructor(
     private cameraService: ICameraService,
-    private visionService: IVisionService
+    private visionService: IVisionService,
+    private contextRepository?: IContextRepository  // Opcional para retrocompatibilidad
   ) {}
 
   /**
@@ -75,6 +77,19 @@ export class AnalyzeSceneUseCase {
 
     // Agregar URI de la imagen a la descripción
     description.imageUri = image.uri;
+
+    // Guardar contexto para preguntas futuras (si hay repositorio configurado)
+    if (this.contextRepository) {
+      console.log('[AnalyzeSceneUseCase] Saving visual context for Q&A...');
+      await this.contextRepository.saveContext({
+        imageUri: image.uri,
+        detectedObjects: description.objects,
+        sceneDescription: description.naturalDescription,
+        timestamp: description.timestamp,
+        confidence: description.confidence,
+      });
+      console.log('[AnalyzeSceneUseCase] ✓ Context saved');
+    }
 
     return description;
   }
