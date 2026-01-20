@@ -18,6 +18,8 @@ export enum IntentType {
   STOP = 'STOP',
   /** User wants to exit the application */
   GOODBYE = 'GOODBYE',
+  /** User is asking a question about the scene */
+  QUESTION = 'QUESTION',
   /** Command was not recognized */
   UNKNOWN = 'UNKNOWN',
 }
@@ -45,6 +47,45 @@ const INTENT_PATTERNS: IntentPattern[] = [
       /\bwhat('s|.is)?\s+(in\s+front|around|there)\b/i,
     ],
     baseConfidence: 0.9,
+  },
+  {
+    type: IntentType.QUESTION,
+    patterns: [
+      // Patrones generales de preguntas en español
+      /^qu[eé]\s+/i,                    // "qué ..." (cualquier cosa)
+      /^c[oó]mo\s+/i,                   // "cómo ..." (cualquier cosa)
+      /^cu[aá]nto[s]?\s+/i,             // "cuánto/cuántos ..." 
+      /^cu[aá]l[es]?\s+/i,              // "cuál/cuáles ..."
+      /^d[oó]nde\s+/i,                  // "dónde ..."
+      /^cu[aá]ndo\s+/i,                 // "cuándo ..."
+      /^qui[eé]n[es]?\s+/i,             // "quién/quiénes ..."
+      /^por\s+qu[eé]\s+/i,              // "por qué ..."
+      /^para\s+qu[eé]\s+/i,             // "para qué ..."
+      /\bde\s+qu[eé]\s+/i,              // "de qué ..."
+      /\bdime\s+/i,                     // "dime ..."
+      /\bexpl[ií]came\s+/i,             // "explícame ..."
+      /\bcu[eé]ntame\s+/i,              // "cuéntame ..."
+      /\bes\s+un[a]?\s+/i,              // "es un/una ..."
+      /\bhay\s+/i,                      // "hay ..."
+      /\bpuede[s]?\s+/i,                // "puede/puedes ..."
+      /\btiene[s]?\s+/i,                // "tiene/tienes ..."
+      
+      // Patrones generales de preguntas en inglés
+      /^what\s+/i,                      // "what ..."
+      /^how\s+/i,                       // "how ..."
+      /^where\s+/i,                     // "where ..."
+      /^when\s+/i,                      // "when ..."
+      /^who\s+/i,                       // "who ..."
+      /^why\s+/i,                       // "why ..."
+      /^which\s+/i,                     // "which ..."
+      /^can\s+you\s+/i,                 // "can you ..."
+      /^tell\s+me\s+/i,                 // "tell me ..."
+      /^is\s+there\s+/i,                // "is there ..."
+      /^are\s+there\s+/i,               // "are there ..."
+      /^does\s+/i,                      // "does ..."
+      /^do\s+you\s+/i,                  // "do you ..."
+    ],
+    baseConfidence: 0.85,
   },
   {
     type: IntentType.REPEAT,
