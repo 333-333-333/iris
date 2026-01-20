@@ -9,7 +9,7 @@ cd /Users/david/Desktop/projects/iris/mobile
 
 # Check Groq API key is configured
 cat .env | grep GROQ_API_KEY
-# Should show: EXPO_PUBLIC_GROQ_API_KEY=gsk_YOUR_API_KEY_HERE
+# Should show: EXPO_PUBLIC_GROQ_API_KEY=your_groq_api_key_here
 ```
 
 ### 2. Verify installation

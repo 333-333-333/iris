@@ -91,7 +91,7 @@ Iris can now answer specific questions about the last captured image using Groq 
 
 API key configured in `.env`:
 ```env
-EXPO_PUBLIC_GROQ_API_KEY=gsk_YOUR_API_KEY_HERE
+EXPO_PUBLIC_GROQ_API_KEY=your_groq_api_key_here
 ```
 
 Groq SDK installed:
@@ -223,7 +223,7 @@ Solution:
 cat mobile/.env | grep GROQ
 
 # If it does not exist, create it
-echo "EXPO_PUBLIC_GROQ_API_KEY=gsk_YOUR_API_KEY_HERE" >> mobile/.env
+echo "EXPO_PUBLIC_GROQ_API_KEY=your_groq_api_key_here" >> mobile/.env
 
 # Restart Metro
 npx expo start --clear
