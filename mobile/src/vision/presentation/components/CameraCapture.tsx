@@ -141,7 +141,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
         ref={cameraRef}
         style={styles.camera}
         facing={useFrontCamera ? 'front' : 'back'}
-        flash="auto"
         onCameraReady={handleCameraReady}
       />
     </View>
@@ -151,17 +150,14 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    // Position at bottom-right corner, mostly off-screen
-    // iOS requires the camera view to be "visible" to initialize
-    bottom: -150,
-    right: -150,
-    width: 200,
-    height: 200,
-    // Don't use opacity:0 - iOS may not initialize camera
+    top: -9999,
+    left: -9999,
+    width: 1,
+    height: 1,
+    opacity: 0,
   },
   camera: {
-    // Camera needs reasonable size to initialize on iOS
-    width: 200,
-    height: 200,
+    width: 1,
+    height: 1,
   },
 });

@@ -310,8 +310,8 @@ const speakActor = fromPromise<void, { text: string }>(async ({ input }) => {
   return new Promise((resolve, reject) => {
     Speech.speak(input.text, {
       language: 'es-ES',
-      pitch: 1.1,
-      rate: 0.85,
+      pitch: 1.0,
+      rate: 1.0,
       onDone: () => {
         console.log('[irisMachine] Speech done');
         resolve();
