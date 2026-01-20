@@ -1,14 +1,6 @@
 import React from 'react';
 import { Text, TextStyle, StyleSheet, TextProps } from 'react-native';
-
-// Type para evitar el error con typeof
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      text: any;
-    }
-  }
-}
+import { colors } from '../../../theme';
 
 export type TypographyVariant = 
   | 'heading' 
@@ -28,42 +20,62 @@ export interface TypographyProps extends Omit<TextProps, 'style'> {
   style?: TextStyle;
 }
 
+/**
+ * Variant styles using Catppuccin Mocha palette
+ */
 const variantStyles: Record<TypographyVariant, TextStyle> = {
   heading: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
-    lineHeight: 34,
+    lineHeight: 40,
+    color: colors.text.primary,
+    letterSpacing: -0.5,
   },
   subheading: {
     fontSize: 20,
-    fontWeight: '600',
-    lineHeight: 26,
+    fontWeight: '500',
+    lineHeight: 28,
+    color: colors.text.secondary,
   },
   body: {
     fontSize: 16,
     fontWeight: '400',
     lineHeight: 24,
+    color: colors.text.primary,
   },
   caption: {
     fontSize: 14,
     fontWeight: '400',
     lineHeight: 20,
+    color: colors.text.tertiary,
   },
   label: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     lineHeight: 16,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
+    color: colors.text.tertiary,
   },
   error: {
     fontSize: 14,
     fontWeight: '500',
     lineHeight: 20,
-    color: '#DC2626',
+    color: colors.status.error,
   },
 };
 
+/**
+ * Typography component with Catppuccin Mocha styling
+ * 
+ * Provides consistent text styling across the app with
+ * semantic variants and accessibility support.
+ * 
+ * @param props - Component props
+ * @returns Styled Text component
+ * 
+ * @public
+ */
 export function Typography({
   children,
   variant = 'body',
@@ -95,6 +107,6 @@ export function Typography({
 
 const styles = StyleSheet.create({
   base: {
-    color: '#1F2937',
+    color: colors.text.primary,
   },
 });

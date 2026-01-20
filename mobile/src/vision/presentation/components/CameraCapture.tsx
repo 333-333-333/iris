@@ -1,22 +1,21 @@
 /**
- * Invisible camera capture component
+ * Camera component for photo capture
  * 
- * Manages an active camera instance without displaying preview.
- * Keeps camera ready for rapid photo capture when needed.
+ * Provides camera hardware access for taking photos on demand.
+ * The component is invisible (0 opacity) but must be mounted
+ * for the camera to be available.
  * 
- * @remarks
- * For visually impaired users, no camera preview is shown.
- * Only the capture and analysis flow is needed.
- * 
- * Component is rendered with 1x1 pixel size and 0 opacity to keep it
- * invisible while maintaining camera hardware access.
+ * Features:
+ * - Auto flash enabled for better photo quality
+ * - Back camera by default
+ * - No continuous preview (only captures on demand)
  * 
  * @public
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { CameraView } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { ExpoCameraAdapter } from '../../infrastructure/adapters/expo/ExpoCameraAdapter';
 
 /**
@@ -25,59 +24,91 @@ import { ExpoCameraAdapter } from '../../infrastructure/adapters/expo/ExpoCamera
  * @public
  */
 interface CameraCaptureProps {
-  /** Callback fired when camera adapter is ready to use */
-  onAdapterReady?: (adapter: ExpoCameraAdapter) => void;
+  /** 
+   * Camera adapter to connect with the CameraView ref.
+   * This should be the same adapter used by VisionServiceBridge.
+   */
+  cameraAdapter: ExpoCameraAdapter;
+  
+  /** Callback fired when camera is ready to capture */
+  onReady?: () => void;
   
   /** Use front-facing camera instead of back (default: false) */
   useFrontCamera?: boolean;
 }
 
 /**
- * Invisible camera component maintaining camera hardware access
+ * Invisible camera component for photo capture
  * 
- * Captures the camera reference and provides adapter for photo capture.
- * Component is hidden (1x1 pixel, 0 opacity) but keeps camera active.
+ * Mounts a CameraView that's invisible but active, allowing
+ * photos to be taken on demand via the adapter.
  * 
  * @param props - Component props
  * @returns React component (invisible)
  * 
  * @example
  * ```typescript
+ * const { cameraAdapter } = useVisionService();
+ * 
  * <CameraCapture
- *   useFrontCamera={false}
- *   onAdapterReady={(adapter) => {
- *     // Store adapter for later use
- *     setCameraAdapter(adapter);
- *   }}
+ *   cameraAdapter={cameraAdapter}
+ *   onReady={() => console.log('Camera ready!')}
  * />
  * ```
  * 
  * @public
  */
 export const CameraCapture: React.FC<CameraCaptureProps> = ({
-  onAdapterReady,
+  cameraAdapter,
+  onReady,
   useFrontCamera = false,
 }) => {
   const cameraRef = useRef<CameraView>(null);
-  const adapterRef = useRef<ExpoCameraAdapter>(new ExpoCameraAdapter());
+  const [permission, requestPermission] = useCameraPermissions();
+  const [isCameraReady, setIsCameraReady] = useState(false);
 
+  // Request permission on mount
   useEffect(() => {
-    // Configurar el adapter con la referencia a la cámara
-    if (cameraRef.current) {
-      adapterRef.current.setCameraRef(cameraRef.current);
-      
-      // Notificar que el adapter está listo
-      onAdapterReady?.(adapterRef.current);
+    if (!permission?.granted) {
+      requestPermission();
     }
-  }, [onAdapterReady]);
+  }, [permission, requestPermission]);
+
+  // Connect camera ref to adapter when ready
+  useEffect(() => {
+    if (cameraRef.current && cameraAdapter && isCameraReady) {
+      console.log('[CameraCapture] Connecting camera ref to adapter...');
+      cameraAdapter.setCameraRef(cameraRef.current);
+      onReady?.();
+    }
+
+    return () => {
+      if (cameraAdapter) {
+        cameraAdapter.setCameraRef(null);
+      }
+    };
+  }, [cameraAdapter, onReady, isCameraReady]);
+
+  // Handle camera ready event
+  const handleCameraReady = () => {
+    console.log('[CameraCapture] Camera hardware ready');
+    setIsCameraReady(true);
+  };
+
+  // Don't render if no permission
+  if (!permission?.granted) {
+    console.log('[CameraCapture] Waiting for camera permission...');
+    return null;
+  }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} pointerEvents="none">
       <CameraView
         ref={cameraRef}
         style={styles.camera}
         facing={useFrontCamera ? 'front' : 'back'}
-        // Mantener la cámara preparada pero oculta
+        flash="auto"
+        onCameraReady={handleCameraReady}
       />
     </View>
   );
@@ -86,15 +117,15 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 0,
-    left: 0,
+    // Move completely off-screen (Android ignores opacity: 0)
+    top: -9999,
+    left: -9999,
     width: 1,
     height: 1,
-    overflow: 'hidden',
-    opacity: 0,
   },
   camera: {
-    width: 1,
-    height: 1,
+    // Camera needs minimum size to initialize properly
+    width: 100,
+    height: 100,
   },
 });
