@@ -44,6 +44,25 @@ export interface ModelInfo {
   type: 'object-detection' | 'classification' | 'segmentation';
 }
 
+export interface QuestionResult {
+  /** Respuesta a la pregunta del usuario */
+  answer: string;
+  
+  /** Confianza en la respuesta (0-1) */
+  confidence: number;
+  
+  /** Modelo que generó la respuesta */
+  sourceModel: 'groq' | 'gemini' | 'azure' | 'tflite';
+}
+
+export interface QuestionContext {
+  /** Objetos detectados en la última imagen */
+  detectedObjects?: import('../../domain/entities/DetectedObject').DetectedObject[];
+  
+  /** Descripción natural de la escena */
+  sceneDescription?: string;
+}
+
 export interface IVisionService {
   /**
    * Analiza una imagen y retorna la descripción de la escena
@@ -56,6 +75,30 @@ export interface IVisionService {
     imageUri: string,
     options?: AnalyzeImageOptions
   ): Promise<SceneDescription>;
+
+  /**
+   * Responde una pregunta sobre una imagen basándose en contexto visual
+   * 
+   * @param imageUri - URI local de la imagen a analizar
+   * @param question - Pregunta del usuario en lenguaje natural
+   * @param context - Contexto adicional (objetos detectados, descripción previa)
+   * @returns Respuesta generada por el modelo de visión
+   * 
+   * @example
+   * ```typescript
+   * const result = await visionService.answerQuestion(
+   *   imageUri,
+   *   "¿De qué color es la camisa?",
+   *   { detectedObjects: [...], sceneDescription: "Veo una camisa..." }
+   * );
+   * console.log(result.answer); // "La camisa es roja"
+   * ```
+   */
+  answerQuestion?(
+    imageUri: string,
+    question: string,
+    context?: QuestionContext
+  ): Promise<QuestionResult>;
 
   /**
    * Pre-carga los modelos en memoria para análisis más rápidos
