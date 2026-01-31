@@ -7,6 +7,7 @@ license: Apache-2.0
 metadata:
   author: template
   version: "1.0"
+  type: generic
   scope: [root]
   auto_invoke:
     - "Creating git commits"

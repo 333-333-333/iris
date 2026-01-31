@@ -7,6 +7,7 @@ license: Apache-2.0
 metadata:
   author: template
   version: "1.0"
+  type: meta
   scope: [root]
   auto_invoke:
     - "After creating/modifying a skill"
@@ -29,9 +30,15 @@ Each skill that should appear in Auto-invoke sections needs these fields in `met
 metadata:
   author: your-name
   version: "1.0"
+  type: generic    # generic | project | meta
   scope: [root]                                   # Which AGENTS.md files to update
   auto_invoke: "When to invoke this skill"        # Single action or list
 ```
+
+The `type` field classifies the skill for the root AGENTS.md layout:
+- **generic**: Reusable across projects (e.g., `documentation`, `git-commit`)
+- **project**: Specific to this project (e.g., `iris-architecture`, `expo`)
+- **meta**: Skills that manage the skills system itself (e.g., `skill-creator`, `skill-sync`) — these are NOT synced and are managed manually
 
 ### Scope Values
 

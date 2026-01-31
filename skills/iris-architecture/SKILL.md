@@ -7,6 +7,7 @@ license: Apache-2.0
 metadata:
   author: iris-team
   version: "1.0"
+  type: project
   scope: [root]
   auto_invoke:
     - "Adding features to voice or vision modules"

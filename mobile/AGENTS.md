@@ -20,15 +20,6 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 
 | Action | Skill |
 |--------|-------|
-| -- | `atomic-design` |
-| -- | `clean-architecture` |
-| -- | `expo` |
-| -- | `react` |
-| -- | `react-native` |
-| -- | `tensorflow-lite` |
-| -- | `testing` |
-| -- | `voice-state-machine` |
-| -- | `xstate` |
 | Building design system | `atomic-design` |
 | Building with EAS | `expo` |
 | Configuring app.json or app.config.js | `expo` |
